@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Settings, Globe, RefreshCw, Loader2, Sparkles, BarChart3, Trash2, Sun, Moon, Zap } from 'lucide-react';
+import { Settings, Globe, RefreshCw, Loader2, Sparkles, BarChart3, Trash2, Sun, Moon, Zap, Key } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchSettings, updateSetting, fetchIndexStatus, triggerReindex, triggerQuickReindex, fetchStats } from '@/lib/api-client';
 import { toast } from 'sonner';
@@ -29,6 +29,8 @@ const LANGUAGES = [
   { code: 'tr', label: 'Türkçe (Turkish)' },
 ];
 
+const CARTO_API_KEY_URL = 'https://carto.com/basemaps/apikey/';
+
 interface SettingsViewProps {
   onSelectPhoto?: (photo: Photo) => void;
 }
@@ -38,6 +40,7 @@ type SettingsTab = 'general' | 'cleanup' | 'stats' | 'trash';
 export default function SettingsView({ onSelectPhoto }: SettingsViewProps) {
   const [tab, setTab] = useState<SettingsTab>('general');
   const [geocodeLang, setGeocodeLang] = useState('en');
+  const [cartoApiKey, setCartoApiKey] = useState('');
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [saving, setSaving] = useState(false);
   const [stats, setStats] = useState<any>(null);
@@ -109,6 +112,7 @@ export default function SettingsView({ onSelectPhoto }: SettingsViewProps) {
     fetchSettings()
       .then(s => {
         if (s.geocode_language) setGeocodeLang(s.geocode_language);
+        if (s.carto_api_key) setCartoApiKey(s.carto_api_key);
       })
       .finally(() => setLoadingSettings(false));
   }, []);
@@ -126,6 +130,19 @@ export default function SettingsView({ onSelectPhoto }: SettingsViewProps) {
     try {
       await updateSetting('geocode_language', lang);
       toast.success('Location language updated. Run a full reindex to apply to existing photos.');
+    } catch {
+      toast.error('Failed to save setting');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCartoApiKeyChange = async (key: string) => {
+    setCartoApiKey(key);
+    setSaving(true);
+    try {
+      await updateSetting('carto_api_key', key);
+      toast.success('Carto API key updated.');
     } catch {
       toast.error('Failed to save setting');
     } finally {
@@ -212,6 +229,31 @@ export default function SettingsView({ onSelectPhoto }: SettingsViewProps) {
                       <option key={l.code} value={l.code}>{l.label}</option>
                     ))}
                   </select>
+                </div>
+              )}
+            </section>
+
+            {/* Carto API Key */}
+            <section className="space-y-3">
+              <h2 className="text-sm font-semibold text-foreground">Carto API Key</h2>
+              <p className="text-xs text-muted-foreground">
+                Enter your Carto API key for map tile access. You can request one here: <a href={CARTO_API_KEY_URL} target="_blank" rel="noopener noreferrer" className="underline">{CARTO_API_KEY_URL}</a>
+              </p>
+              {loadingSettings ? (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Loading…
+                </div>
+              ) : (
+                <div className="relative">
+                  <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <input
+                    name="carto_api_key"
+                    type="text"
+                    value={cartoApiKey}
+                    onChange={e => handleCartoApiKeyChange(e.target.value)}
+                    disabled={saving}
+                    className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
+                  />
                 </div>
               )}
             </section>

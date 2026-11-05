@@ -4,7 +4,7 @@ import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { Photo } from '@/lib/mock-data';
-import { fetchMapClusters, fetchMapCountries, fetchMapCities, type MapCluster } from '@/lib/api-client';
+import { fetchMapClusters, fetchMapCountries, fetchMapCities, fetchSettings, type MapCluster } from '@/lib/api-client';
 import { Filter, X, Loader2 } from 'lucide-react';
 
 // Fix default marker icons for Leaflet + bundlers
@@ -40,6 +40,7 @@ export default function PhotoMap({ photos, onSelect }: PhotoMapProps) {
   const [showFilters, setShowFilters] = useState(false);
   const [clusters, setClusters] = useState<MapCluster[]>([]);
   const [countries, setCountries] = useState<{ name: string; count: number }[]>([]);
+  const [cartoApiKey, setCartoApiKey] = useState<string | null>(null);
   const [cities, setCities] = useState<{ name: string; count: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [useClusterMode, setUseClusterMode] = useState(true);
@@ -62,6 +63,13 @@ export default function PhotoMap({ photos, onSelect }: PhotoMapProps) {
   // Load countries on mount
   useEffect(() => {
     fetchMapCountries().then(setCountries).catch(() => {});
+  }, []);
+
+  // Load Carto API key on mount
+  useEffect(() => {
+    fetchSettings().then((settings) => {
+      setCartoApiKey(settings.carto_api_key || '');
+    }).catch(() => {});
   }, []);
 
   // Load cities when country changes
@@ -178,10 +186,16 @@ export default function PhotoMap({ photos, onSelect }: PhotoMapProps) {
           zoomControl={false}
         >
           <FitBounds points={mapPoints} hasFilters={hasFilters} />
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          />
+          {cartoApiKey === null ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-surface/80 z-10">
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            </div>
+          ) : (
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
+              url={`https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=${cartoApiKey}`}
+            />
+          )}
 
           {useClusterMode ? (
             /* Server-side clusters: render as sized circle markers */

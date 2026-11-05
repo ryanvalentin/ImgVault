@@ -1054,7 +1054,7 @@ def list_settings():
 
 @app.put("/api/settings/{key}")
 def update_setting(key: str, body: SettingUpdate):
-    allowed_keys = {"geocode_language"}
+    allowed_keys = {"geocode_language", "carto_api_key"}
     if key not in allowed_keys:
         raise HTTPException(status_code=400, detail=f"Unknown setting: {key}")
     set_setting(key, body.value)
