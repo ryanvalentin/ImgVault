@@ -179,7 +179,7 @@ export default function SettingsView({ onSelectPhoto }: SettingsViewProps) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin pt-4">
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin pt-4 px-1">
         {tab === 'general' && (
           <div className="max-w-lg space-y-6">
             {/* Appearance */}
@@ -328,7 +328,7 @@ export default function SettingsView({ onSelectPhoto }: SettingsViewProps) {
         )}
 
         {tab === 'cleanup' && (
-          <div className="h-full -mx-3 sm:-mx-5">
+          <div className="h-full -mx-1">
             <CleanupView onSelect={onSelectPhoto} />
           </div>
         )}
@@ -338,7 +338,7 @@ export default function SettingsView({ onSelectPhoto }: SettingsViewProps) {
         )}
 
         {tab === 'trash' && (
-          <div className="h-full -mx-3 sm:-mx-5">
+          <div className="h-full -mx-1">
             <TrashView />
           </div>
         )}
