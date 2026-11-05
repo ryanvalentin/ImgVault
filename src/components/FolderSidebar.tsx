@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { ChevronRight, Folder as FolderIcon, Image, X } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { ArrowDownAZ, ArrowUpZA, ChevronRight, Folder as FolderIcon, Image, ListCollapse, ListTree, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Folder } from '@/lib/mock-data';
 
@@ -11,13 +11,29 @@ interface FolderSidebarProps {
   onClose: () => void;
 }
 
-function FolderNode({ folder, depth, selectedFolder, onSelectFolder }: {
+interface ExpandSignal {
+  expanded: boolean;
+  id: number;
+}
+
+function sortFolders(folders: Folder[], asc: boolean): Folder[] {
+  return folders
+    .map((f) => ({ ...f, children: sortFolders(f.children, asc) }))
+    .sort((a, b) => (asc ? 1 : -1) * a.name.localeCompare(b.name));
+}
+
+function FolderNode({ folder, depth, selectedFolder, onSelectFolder, signal }: {
   folder: Folder;
   depth: number;
   selectedFolder: string | null;
   onSelectFolder: (path: string | null) => void;
+  signal: ExpandSignal;
 }) {
   const [expanded, setExpanded] = useState(depth === 0);
+
+  useEffect(() => {
+    if (signal.id > 0) setExpanded(signal.expanded);
+  }, [signal]);
   const hasChildren = folder.children.length > 0;
   const isSelected = selectedFolder === folder.path;
 
@@ -60,6 +76,7 @@ function FolderNode({ folder, depth, selectedFolder, onSelectFolder }: {
               depth={depth + 1}
               selectedFolder={selectedFolder}
               onSelectFolder={onSelectFolder}
+              signal={signal}
             />
           ))}
         </div>
@@ -70,6 +87,10 @@ function FolderNode({ folder, depth, selectedFolder, onSelectFolder }: {
 
 function SidebarContent({ folders, selectedFolder, onSelectFolder }: Omit<FolderSidebarProps, 'open' | 'onClose'>) {
   const totalPhotos = folders.reduce((sum, f) => sum + f.photoCount, 0);
+  const [allExpanded, setAllExpanded] = useState(true);
+  const [signal, setSignal] = useState<ExpandSignal>({ expanded: false, id: 0 });
+  const [sortAsc, setSortAsc] = useState(true);
+  const sortedFolders = useMemo(() => sortFolders(folders, sortAsc), [folders, sortAsc]);
 
   return (
     <>
@@ -89,16 +110,41 @@ function SidebarContent({ folders, selectedFolder, onSelectFolder }: Omit<Folder
         </button>
       </div>
       <div className="px-4 pt-2 pb-1">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Folders</h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Folders</h2>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => {
+                const next = !allExpanded;
+                setAllExpanded(next);
+                setSignal((s) => ({ expanded: next, id: s.id + 1 }));
+              }}
+              className="p-1 rounded-md text-muted-foreground hover:bg-secondary active:scale-95"
+              aria-label={allExpanded ? 'Collapse all folders' : 'Expand all folders'}
+              title={allExpanded ? 'Collapse all' : 'Expand all'}
+            >
+              {allExpanded ? <ListTree className="h-3.5 w-3.5" /> : <ListCollapse className="h-3.5 w-3.5" />}
+            </button>
+            <button
+              onClick={() => setSortAsc(!sortAsc)}
+              className="p-1 rounded-md text-muted-foreground hover:bg-secondary active:scale-95"
+              aria-label={sortAsc ? 'Sort descending' : 'Sort ascending'}
+              title={sortAsc ? 'Sorted A–Z' : 'Sorted Z–A'}
+            >
+              {sortAsc ? <ArrowDownAZ className="h-3.5 w-3.5" /> : <ArrowUpZA className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+        </div>
       </div>
       <div className="px-2 pb-4">
-        {folders.map((folder) => (
+        {sortedFolders.map((folder) => (
           <FolderNode
             key={folder.path}
             folder={folder}
             depth={0}
             selectedFolder={selectedFolder}
             onSelectFolder={onSelectFolder}
+            signal={signal}
           />
         ))}
       </div>
