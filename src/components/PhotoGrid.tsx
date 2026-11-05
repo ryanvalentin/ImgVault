@@ -56,6 +56,8 @@ function PhotoThumbnail({ photo, onSelect, deleteMode, selected, onToggleSelect 
 }) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [playingLive, setPlayingLive] = useState(false);
+  const liveUrl = photo.liveVideo?.url;
 
   const imgSrc = failed ? null : (photo.thumbnailUrl || photo.fullUrl);
 
@@ -70,6 +72,8 @@ function PhotoThumbnail({ photo, onSelect, deleteMode, selected, onToggleSelect 
   return (
     <button
       onClick={handleClick}
+      onMouseEnter={() => { if (liveUrl && !deleteMode) setPlayingLive(true); }}
+      onMouseLeave={() => setPlayingLive(false)}
       className={cn(
         "group relative overflow-hidden bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 outline-none active:scale-[0.97] transition-all duration-150",
         deleteMode && selected && "ring-2 ring-destructive ring-offset-1 ring-offset-background",
@@ -91,6 +95,18 @@ function PhotoThumbnail({ photo, onSelect, deleteMode, selected, onToggleSelect 
           )}
         />
       ) : null}
+      {playingLive && liveUrl && (
+        <video
+          src={liveUrl}
+          autoPlay
+          muted
+          playsInline
+          preload="auto"
+          onEnded={() => setPlayingLive(false)}
+          onError={() => setPlayingLive(false)}
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+        />
+      )}
       {(!loaded || failed || !imgSrc) && (
         <div className="absolute inset-0 bg-muted flex items-center justify-center">
           {failed || !imgSrc ? (

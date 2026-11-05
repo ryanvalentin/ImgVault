@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import (
-    init_db, upsert_photo, upsert_photos_batch, search_photos, get_folder_tree, get_photo_by_id,
+    init_db, upsert_photo, upsert_photos_batch, search_photos, get_live_videos, link_live_photos, get_folder_tree, get_photo_by_id,
     get_stats, remove_missing_photos, get_indexed_hashes, get_indexed_paths, remove_photos_by_paths,
     get_map_photos, get_map_clusters, get_map_countries, get_map_cities,
     get_duplicate_photos, delete_photos_by_ids,
@@ -274,6 +274,10 @@ def run_indexer(force_full: bool = False, quick: bool = False):
                 _cleanup_cached_files(entry["id"], entry.get("thumbnail_path"))
             logger.info(f"Removed {len(removed)} entries + files for deleted photos")
 
+        linked = link_live_photos()
+        if linked:
+            logger.info(f"Updated live photo links on {linked} entries")
+
         indexing_status["last_run"] = time.strftime("%Y-%m-%dT%H:%M:%S")
         logger.info(f"Indexing complete: {count} new/changed, {skipped} skipped")
 
@@ -350,9 +354,7 @@ def list_photos(
         total = max(0, total - len(set(stale_paths)))
 
     # Format for frontend
-    items = []
-    for p in photos:
-        items.append(_format_photo(p))
+    items = _format_photos(photos)
 
     return {"items": items, "total": total, "limit": limit, "offset": offset}
 
@@ -379,7 +381,7 @@ def list_map_photos(
         stale_path_set = set(stale_paths)
         photos = [p for p in photos if p["path"] not in stale_path_set]
 
-    items = [_format_photo(p) for p in photos]
+    items = _format_photos(photos)
     return {"items": items, "total": len(items)}
 
 
@@ -601,7 +603,24 @@ def stats():
     return get_stats()
 
 
-def _format_photo(p: dict) -> dict:
+def _format_photos(photos: list[dict]) -> list[dict]:
+    live_videos = get_live_videos(photos)
+    return [_format_photo(p, live_videos.get(p["id"])) for p in photos]
+
+
+def _format_photo(p: dict, live_video: dict | None = None) -> dict:
+    result = _format_photo_base(p)
+    if live_video:
+        result["liveVideo"] = {
+            "id": live_video["id"],
+            "filename": live_video["filename"],
+            "url": f"/api/media/{live_video['id']}",
+            "duration": live_video.get("duration"),
+        }
+    return result
+
+
+def _format_photo_base(p: dict) -> dict:
     return {
         "id": p["id"],
         "filename": p["filename"],
@@ -667,12 +686,13 @@ def list_duplicates():
         photos = [p for p in photos if p["path"] not in stale_set]
 
     # Group by file_hash
+    live_videos = get_live_videos(photos)
     groups: dict[str, list] = {}
     for p in photos:
         h = p["file_hash"]
         if h not in groups:
             groups[h] = []
-        groups[h].append(_format_photo(p))
+        groups[h].append(_format_photo(p, live_videos.get(p["id"])))
 
     # Only keep groups with 2+ items
     result = [{"hash": h, "photos": items} for h, items in groups.items() if len(items) >= 2]
@@ -730,6 +750,7 @@ def delete_photos_endpoint(req: DeletePhotosRequest):
             "thumbnail_path": entry.get("thumbnail_path"),
             "file_hash": entry.get("file_hash"),
             "file_modified_at": entry.get("file_modified_at"),
+            "live": entry.get("live"),
         })
 
     return {"deleted": len(removed), "movedToTrash": moved_to_trash, "ids": [r["id"] for r in removed]}
@@ -809,6 +830,9 @@ def restore_from_trash(req: RestoreRequest):
             except OSError as e:
                 logger.warning(f"Failed to restore {item['original_path']}: {e}")
 
+    if restored:
+        link_live_photos()
+
     return {"restored": restored, "ids": [i["id"] for i in items]}
 
 
@@ -822,7 +846,7 @@ def empty_trash(req: EmptyTrashRequest):
     if req.ids:
         items = remove_from_trash(req.ids)
     else:
-        items = get_trash_items()
+        items = get_trash_items(include_hidden=True)
         remove_from_trash([i["id"] for i in items])
 
     deleted = 0
@@ -885,15 +909,15 @@ def cleanup_suggestions():
 
     # Format all items
     result = {
-        "screenshots": [_format_photo(p) for p in data["screenshots"]],
-        "shortVideos": [_format_photo(p) for p in data["shortVideos"]],
-        "largeVideos": [_format_photo(p) for p in data["largeVideos"]],
+        "screenshots": _format_photos(data["screenshots"]),
+        "shortVideos": _format_photos(data["shortVideos"]),
+        "largeVideos": _format_photos(data["largeVideos"]),
         "similarGroups": [
-            [_format_photo(p) for p in group]
+            _format_photos(group)
             for group in data["similarGroups"]
         ],
         "duplicateGroups": [
-            [_format_photo(p) for p in group]
+            _format_photos(group)
             for group in data["duplicateGroups"]
         ],
     }
@@ -1014,7 +1038,7 @@ def list_album_photos(
     if not album:
         raise HTTPException(status_code=404, detail="Album not found")
     photos, total = get_album_photos(album_id, limit=limit, offset=offset)
-    return {"items": [_format_photo(p) for p in photos], "total": total}
+    return {"items": _format_photos(photos), "total": total}
 
 
 @app.post("/api/albums/{album_id}/photos")
@@ -1040,7 +1064,7 @@ def remove_from_album(album_id: str, req: AlbumPhotosRequest):
 @app.get("/api/recent")
 def list_recent(limit: int = Query(200, ge=1, le=5000)):
     photos, total = get_recent_photos(limit=limit)
-    return {"items": [_format_photo(p) for p in photos], "total": total}
+    return {"items": _format_photos(photos), "total": total}
 
 
 # ── Settings endpoints ────────────────────────────────────────────

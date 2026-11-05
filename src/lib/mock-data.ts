@@ -13,6 +13,7 @@ export interface Photo {
   fullUrl: string;
   fileSize: number;
   duration?: number;
+  liveVideo?: { id: string; filename: string; url: string; duration?: number };
   metadata: {
     dateTaken?: string;
     location?: string;

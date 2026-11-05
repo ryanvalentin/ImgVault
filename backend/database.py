@@ -86,10 +86,12 @@ def init_db():
             conn.execute(f"ALTER TABLE photos ADD COLUMN {col} {col_type}")
         except Exception:
             pass
-    try:
-        conn.execute("ALTER TABLE trash ADD COLUMN duration REAL")
-    except Exception:
-        pass
+    for table, col, col_type in [("photos", "live", "TEXT"), ("trash", "duration", "REAL"), ("trash", "live", "TEXT")]:
+        try:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
+        except Exception:
+            pass
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_live ON photos(live)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_phash ON photos(phash)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_country ON photos(country)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_city ON photos(city)")
@@ -172,7 +174,7 @@ _UPSERT_SQL = """
 
 def upsert_photo(photo: dict):
     conn = get_db()
-    conn.execute(_UPSERT_SQL, photo)
+    conn.execute(_UPSERT_SQL, {"phash": None, "country": None, "city": None, **photo})
     conn.commit()
     conn.close()
 
@@ -187,6 +189,76 @@ def upsert_photos_batch(photos: list[dict]):
     conn.close()
 
 
+# Videos paired with a still image are never listed on their own.
+def _visible(alias: str = "") -> str:
+    prefix = f"{alias}." if alias else ""
+    return f"NOT ({prefix}type = 'video' AND {prefix}live IS NOT NULL)"
+
+
+_LIVE_IMAGE_EXTS = ("jpg", "jpeg", "heic", "avif")
+_LIVE_VIDEO_EXTS = ("mov", "mp4")
+
+
+def link_live_photos() -> int:
+    """Pair each still image with the video of the same folder and filename stem.
+
+    Sets photos.live on both rows (one-to-one, symmetric). Returns rows changed.
+    """
+    conn = get_db()
+    rows = conn.execute("SELECT id, folder, filename, type, live FROM photos").fetchall()
+
+    videos: dict[tuple, str] = {}
+    for r in rows:
+        stem, dot, ext = r["filename"].rpartition(".")
+        if r["type"] == "video" and dot and ext.lower() in _LIVE_VIDEO_EXTS:
+            videos.setdefault((r["folder"], stem), r["id"])
+
+    desired: dict[str, str] = {}
+    for r in rows:
+        stem, dot, ext = r["filename"].rpartition(".")
+        if r["type"] != "image" or not dot or ext.lower() not in _LIVE_IMAGE_EXTS:
+            continue
+        video_id = videos.get((r["folder"], stem))
+        if video_id and video_id not in desired:
+            desired[r["id"]] = video_id
+            desired[video_id] = r["id"]
+
+    updates = [
+        (desired.get(r["id"]), r["id"]) for r in rows
+        if r["live"] != desired.get(r["id"])
+    ]
+    if updates:
+        conn.executemany("UPDATE photos SET live = ? WHERE id = ?", updates)
+        conn.commit()
+    conn.close()
+    return len(updates)
+
+
+def get_live_videos(photos: list[dict]) -> dict[str, dict]:
+    """Map photo id -> its paired live video row, for photos that have `live` set."""
+    ids = list({p["live"] for p in photos if p.get("live") and p.get("type") == "image"})
+    if not ids:
+        return {}
+
+    conn = get_db()
+    by_id: dict[str, dict] = {}
+    for i in range(0, len(ids), 500):
+        chunk = ids[i:i + 500]
+        marks = ",".join("?" * len(chunk))
+        for r in conn.execute(f"SELECT * FROM photos WHERE id IN ({marks})", chunk).fetchall():
+            by_id[r["id"]] = dict(r)
+    conn.close()
+    return {p["id"]: by_id[p["live"]] for p in photos if p.get("live") in by_id and p.get("type") == "image"}
+
+
+def _unlink(conn: sqlite3.Connection, ids: list[str]):
+    """Clear `live` on any rows still pointing at the given (removed) ids."""
+    if not ids:
+        return
+    marks = ",".join("?" * len(ids))
+    conn.execute(f"UPDATE photos SET live = NULL WHERE live IN ({marks})", ids)
+
+
 def remove_missing_photos(existing_paths: set[str]):
     """Remove DB entries for files that no longer exist on disk. Returns list of removed (path, id, thumbnail_path)."""
     conn = get_db()
@@ -199,6 +271,7 @@ def remove_missing_photos(existing_paths: set[str]):
             photo_id, thumb = db_entries[p]
             removed_info.append({"path": p, "id": photo_id, "thumbnail_path": thumb})
         conn.executemany("DELETE FROM photos WHERE path = ?", [(p,) for p in removed_paths])
+        _unlink(conn, [info["id"] for info in removed_info])
         conn.commit()
     conn.close()
     return removed_info
@@ -225,6 +298,7 @@ def remove_photos_by_paths(paths: list[str]):
 
     if removed_info:
         conn.executemany("DELETE FROM photos WHERE path = ?", [(row["path"],) for row in removed_info])
+        _unlink(conn, [row["id"] for row in removed_info])
         conn.commit()
 
     conn.close()
@@ -267,7 +341,8 @@ def search_photos(
         conditions.append("type = ?")
         params.append(photo_type)
 
-    where = " AND ".join(conditions) if conditions else "1=1"
+    conditions.append(_visible())
+    where = " AND ".join(conditions)
 
     # Get total count
     count_row = conn.execute(f"SELECT COUNT(*) as cnt FROM photos WHERE {where}", params).fetchone()
@@ -286,7 +361,7 @@ def search_photos(
 def get_folder_tree() -> list[dict]:
     conn = get_db()
     rows = conn.execute(
-        "SELECT folder, COUNT(*) as count FROM photos GROUP BY folder ORDER BY folder"
+        f"SELECT folder, COUNT(*) as count FROM photos WHERE {_visible()} GROUP BY folder ORDER BY folder"
     ).fetchall()
     conn.close()
 
@@ -341,30 +416,31 @@ def get_indexed_paths() -> set[str]:
 
 def get_stats() -> dict:
     conn = get_db()
-    total = conn.execute("SELECT COUNT(*) as cnt FROM photos").fetchone()["cnt"]
-    images = conn.execute("SELECT COUNT(*) as cnt FROM photos WHERE type='image'").fetchone()["cnt"]
-    videos = conn.execute("SELECT COUNT(*) as cnt FROM photos WHERE type='video'").fetchone()["cnt"]
-    total_size = conn.execute("SELECT COALESCE(SUM(file_size), 0) as s FROM photos").fetchone()["s"]
-    locations = conn.execute("SELECT COUNT(DISTINCT location) as cnt FROM photos WHERE location IS NOT NULL").fetchone()["cnt"]
+    v = _visible()
+    total = conn.execute(f"SELECT COUNT(*) as cnt FROM photos WHERE {v}").fetchone()["cnt"]
+    images = conn.execute(f"SELECT COUNT(*) as cnt FROM photos WHERE type='image' AND {v}").fetchone()["cnt"]
+    videos = conn.execute(f"SELECT COUNT(*) as cnt FROM photos WHERE type='video' AND {v}").fetchone()["cnt"]
+    total_size = conn.execute(f"SELECT COALESCE(SUM(file_size), 0) as s FROM photos WHERE {v}").fetchone()["s"]
+    locations = conn.execute(f"SELECT COUNT(DISTINCT location) as cnt FROM photos WHERE location IS NOT NULL AND {v}").fetchone()["cnt"]
 
     by_camera = [dict(r) for r in conn.execute(
-        "SELECT camera as name, COUNT(*) as count FROM photos WHERE camera IS NOT NULL GROUP BY camera ORDER BY count DESC"
+        f"SELECT camera as name, COUNT(*) as count FROM photos WHERE camera IS NOT NULL AND {v} GROUP BY camera ORDER BY count DESC"
     ).fetchall()]
 
     by_location = [dict(r) for r in conn.execute(
-        "SELECT location as name, COUNT(*) as count FROM photos WHERE location IS NOT NULL GROUP BY location ORDER BY count DESC"
+        f"SELECT location as name, COUNT(*) as count FROM photos WHERE location IS NOT NULL AND {v} GROUP BY location ORDER BY count DESC"
     ).fetchall()]
 
     by_year = [dict(r) for r in conn.execute(
-        "SELECT strftime('%Y', date_taken) as name, COUNT(*) as count FROM photos WHERE date_taken IS NOT NULL GROUP BY name ORDER BY name"
+        f"SELECT strftime('%Y', date_taken) as name, COUNT(*) as count FROM photos WHERE date_taken IS NOT NULL AND {v} GROUP BY name ORDER BY name"
     ).fetchall()]
 
     by_country = [dict(r) for r in conn.execute(
-        "SELECT country as name, COUNT(*) as count FROM photos WHERE country IS NOT NULL GROUP BY country ORDER BY count DESC"
+        f"SELECT country as name, COUNT(*) as count FROM photos WHERE country IS NOT NULL AND {v} GROUP BY country ORDER BY count DESC"
     ).fetchall()]
 
     by_city = [dict(r) for r in conn.execute(
-        "SELECT city as name, COUNT(*) as count FROM photos WHERE city IS NOT NULL GROUP BY city ORDER BY count DESC"
+        f"SELECT city as name, COUNT(*) as count FROM photos WHERE city IS NOT NULL AND {v} GROUP BY city ORDER BY count DESC"
     ).fetchall()]
 
     conn.close()
@@ -389,7 +465,7 @@ def get_map_photos(
 ) -> list[dict]:
     """Return geotagged photos as server-side clusters grouped by city."""
     conn = get_db()
-    conditions = ["gps_lat IS NOT NULL", "gps_lng IS NOT NULL"]
+    conditions = ["gps_lat IS NOT NULL", "gps_lng IS NOT NULL", _visible()]
     params = []
 
     if query:
@@ -410,7 +486,7 @@ def get_map_photos(
         SELECT id, filename, path, folder, type, width, height, file_size,
                date_taken, location, camera, lens, iso, aperture,
                shutter_speed, gps_lat, gps_lng, thumbnail_path, file_modified_at,
-               country, city
+               country, city, live
         FROM photos
         WHERE {where}
         ORDER BY date_taken DESC
@@ -431,7 +507,7 @@ def get_map_clusters(
 ) -> list[dict]:
     """Return server-side clustered map data grouped by city (or coordinate grid for uncategorized)."""
     conn = get_db()
-    conditions = ["gps_lat IS NOT NULL", "gps_lng IS NOT NULL"]
+    conditions = ["gps_lat IS NOT NULL", "gps_lng IS NOT NULL", _visible()]
     params = []
 
     if query:
@@ -484,7 +560,7 @@ def get_map_countries() -> list[dict]:
     """Return list of countries with photo counts for map filtering."""
     conn = get_db()
     rows = conn.execute(
-        "SELECT country as name, COUNT(*) as count FROM photos WHERE country IS NOT NULL AND gps_lat IS NOT NULL GROUP BY country ORDER BY count DESC"
+        f"SELECT country as name, COUNT(*) as count FROM photos WHERE country IS NOT NULL AND gps_lat IS NOT NULL AND {_visible()} GROUP BY country ORDER BY count DESC"
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -493,7 +569,7 @@ def get_map_countries() -> list[dict]:
 def get_map_cities(country: Optional[str] = None) -> list[dict]:
     """Return list of cities with photo counts, optionally filtered by country."""
     conn = get_db()
-    conditions = ["city IS NOT NULL", "gps_lat IS NOT NULL"]
+    conditions = ["city IS NOT NULL", "gps_lat IS NOT NULL", _visible()]
     params = []
     if country:
         conditions.append("country = ?")
@@ -512,7 +588,7 @@ def get_duplicate_photos() -> list[dict]:
     conn = get_db()
     # Find hashes that appear more than once
     dup_hashes = conn.execute(
-        "SELECT file_hash FROM photos WHERE file_hash IS NOT NULL GROUP BY file_hash HAVING COUNT(*) > 1"
+        f"SELECT file_hash FROM photos WHERE file_hash IS NOT NULL AND {_visible()} GROUP BY file_hash HAVING COUNT(*) > 1"
     ).fetchall()
 
     if not dup_hashes:
@@ -522,7 +598,7 @@ def get_duplicate_photos() -> list[dict]:
     hash_list = [row["file_hash"] for row in dup_hashes]
     placeholders = ",".join("?" for _ in hash_list)
     rows = conn.execute(
-        f"SELECT * FROM photos WHERE file_hash IN ({placeholders}) ORDER BY file_hash, date_taken DESC",
+        f"SELECT * FROM photos WHERE file_hash IN ({placeholders}) AND {_visible()} ORDER BY file_hash, date_taken DESC",
         hash_list,
     ).fetchall()
 
@@ -531,7 +607,10 @@ def get_duplicate_photos() -> list[dict]:
 
 
 def delete_photos_by_ids(photo_ids: list[str]) -> list[dict]:
-    """Delete photos by ID. Returns removed entries with full data for trash."""
+    """Delete photos by ID, including their paired live photo/video.
+
+    Returns removed entries with full data for trash.
+    """
     if not photo_ids:
         return []
 
@@ -540,8 +619,8 @@ def delete_photos_by_ids(photo_ids: list[str]) -> list[dict]:
 
     conn = get_db()
     rows = conn.execute(
-        f"SELECT * FROM photos WHERE id IN ({placeholders})",
-        unique_ids,
+        f"SELECT * FROM photos WHERE id IN ({placeholders}) OR live IN ({placeholders})",
+        unique_ids + unique_ids,
     ).fetchall()
 
     removed_info = [dict(row) for row in rows]
@@ -562,19 +641,23 @@ def add_to_trash(entry: dict):
     conn.execute("""
         INSERT OR REPLACE INTO trash (id, filename, original_path, trash_path, folder, type,
             width, height, file_size, duration, date_taken, location, camera, lens, iso, aperture,
-            shutter_speed, gps_lat, gps_lng, thumbnail_path, file_hash, file_modified_at)
+            shutter_speed, gps_lat, gps_lng, thumbnail_path, file_hash, file_modified_at, live)
         VALUES (:id, :filename, :original_path, :trash_path, :folder, :type,
             :width, :height, :file_size, :duration, :date_taken, :location, :camera, :lens, :iso, :aperture,
-            :shutter_speed, :gps_lat, :gps_lng, :thumbnail_path, :file_hash, :file_modified_at)
-    """, entry)
+            :shutter_speed, :gps_lat, :gps_lng, :thumbnail_path, :file_hash, :file_modified_at, :live)
+    """, {"live": None, **entry})
     conn.commit()
     conn.close()
 
 
-def get_trash_items() -> list[dict]:
-    """Get all items in the trash, ordered by deletion date."""
+def get_trash_items(include_hidden: bool = False) -> list[dict]:
+    """Get items in the trash, ordered by deletion date.
+
+    Live videos paired with a trashed still are hidden unless include_hidden is set.
+    """
     conn = get_db()
-    rows = conn.execute("SELECT * FROM trash ORDER BY deleted_at DESC").fetchall()
+    where = "1=1" if include_hidden else _visible()
+    rows = conn.execute(f"SELECT * FROM trash WHERE {where} ORDER BY deleted_at DESC").fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
@@ -587,12 +670,15 @@ def get_trash_item_by_id(item_id: str) -> Optional[dict]:
 
 
 def remove_from_trash(item_ids: list[str]) -> list[dict]:
-    """Remove items from trash table. Returns the removed entries."""
+    """Remove items (and their paired live photo/video) from trash. Returns the removed entries."""
     if not item_ids:
         return []
     placeholders = ",".join("?" for _ in item_ids)
     conn = get_db()
-    rows = conn.execute(f"SELECT * FROM trash WHERE id IN ({placeholders})", item_ids).fetchall()
+    rows = conn.execute(
+        f"SELECT * FROM trash WHERE id IN ({placeholders}) OR live IN ({placeholders})",
+        list(item_ids) + list(item_ids),
+    ).fetchall()
     removed = [dict(r) for r in rows]
     if removed:
         conn.executemany("DELETE FROM trash WHERE id = ?", [(r["id"],) for r in removed])
@@ -632,8 +718,9 @@ def get_cleanup_data() -> dict:
         f"(width={w} AND height={h})"
         for w, h in screenshot_resolutions
     )
+    v = _visible()
     screenshots = [dict(r) for r in conn.execute(
-        f"""SELECT * FROM photos WHERE type='image' AND (
+        f"""SELECT * FROM photos WHERE type='image' AND {v} AND (
             LOWER(filename) LIKE '%screenshot%'
             OR LOWER(filename) LIKE '%screen shot%'
             OR LOWER(filename) LIKE '%screen_shot%'
@@ -678,24 +765,24 @@ def get_cleanup_data() -> dict:
 
     # Short videos (<=3 seconds)
     short_videos = [dict(r) for r in conn.execute(
-        "SELECT * FROM photos WHERE type='video' AND duration IS NOT NULL AND duration <= 3 ORDER BY date_taken DESC"
+        f"SELECT * FROM photos WHERE type='video' AND duration IS NOT NULL AND duration <= 3 AND {v} ORDER BY date_taken DESC"
     ).fetchall()]
 
     # Large videos (>100MB)
     large_videos = [dict(r) for r in conn.execute(
-        "SELECT * FROM photos WHERE type='video' AND file_size > 104857600 ORDER BY file_size DESC"
+        f"SELECT * FROM photos WHERE type='video' AND file_size > 104857600 AND {v} ORDER BY file_size DESC"
     ).fetchall()]
 
     # Exact duplicates: files with same hash across ALL folders
     dup_hashes = conn.execute(
-        "SELECT file_hash FROM photos WHERE file_hash IS NOT NULL GROUP BY file_hash HAVING COUNT(*) > 1"
+        f"SELECT file_hash FROM photos WHERE file_hash IS NOT NULL AND {v} GROUP BY file_hash HAVING COUNT(*) > 1"
     ).fetchall()
     duplicate_groups = []
     if dup_hashes:
         hash_list = [row["file_hash"] for row in dup_hashes]
         placeholders = ",".join("?" for _ in hash_list)
         dup_rows = conn.execute(
-            f"SELECT * FROM photos WHERE file_hash IN ({placeholders}) ORDER BY file_hash, date_taken DESC",
+            f"SELECT * FROM photos WHERE file_hash IN ({placeholders}) AND {v} ORDER BY file_hash, date_taken DESC",
             hash_list,
         ).fetchall()
         # Group by hash
@@ -805,12 +892,13 @@ def remove_photos_from_album(album_id: str, photo_ids: list[str]):
 def get_album_photos(album_id: str, limit: int = 500, offset: int = 0) -> tuple[list[dict], int]:
     conn = get_db()
     total = conn.execute(
-        "SELECT COUNT(*) as cnt FROM album_photos WHERE album_id = ?", (album_id,)
+        f"""SELECT COUNT(*) as cnt FROM album_photos ap JOIN photos p ON p.id = ap.photo_id
+            WHERE ap.album_id = ? AND {_visible('p')}""", (album_id,)
     ).fetchone()["cnt"]
     rows = conn.execute(
-        """SELECT p.* FROM photos p
+        f"""SELECT p.* FROM photos p
            JOIN album_photos ap ON ap.photo_id = p.id
-           WHERE ap.album_id = ?
+           WHERE ap.album_id = ? AND {_visible('p')}
            ORDER BY ap.added_at DESC
            LIMIT ? OFFSET ?""",
         (album_id, limit, offset),
@@ -822,9 +910,9 @@ def get_album_photos(album_id: str, limit: int = 500, offset: int = 0) -> tuple[
 def get_recent_photos(limit: int = 200) -> tuple[list[dict], int]:
     """Get most recently indexed photos."""
     conn = get_db()
-    total = conn.execute("SELECT COUNT(*) as cnt FROM photos").fetchone()["cnt"]
+    total = conn.execute(f"SELECT COUNT(*) as cnt FROM photos WHERE {_visible()}").fetchone()["cnt"]
     rows = conn.execute(
-        "SELECT * FROM photos ORDER BY indexed_at DESC LIMIT ?", (limit,)
+        f"SELECT * FROM photos WHERE {_visible()} ORDER BY indexed_at DESC LIMIT ?", (limit,)
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows], total
