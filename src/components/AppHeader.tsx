@@ -188,6 +188,7 @@ export default function AppHeader({ onToggleSidebar, viewMode, onViewModeChange,
                 'px-2 py-1 rounded-md text-xs font-medium transition-colors active:scale-95',
                 !typeFilter ? 'bg-surface shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground',
               )}
+              title="All types"
             >All</button>
             <button
               onClick={() => onTypeFilterChange(typeFilter === 'image' ? null : 'image')}
@@ -196,6 +197,7 @@ export default function AppHeader({ onToggleSidebar, viewMode, onViewModeChange,
                 typeFilter === 'image' ? 'bg-surface shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground',
               )}
               aria-label="Photos only"
+              title="Photos only"
             ><ImageIcon className="h-3.5 w-3.5" /></button>
             <button
               onClick={() => onTypeFilterChange(typeFilter === 'video' ? null : 'video')}
@@ -204,6 +206,7 @@ export default function AppHeader({ onToggleSidebar, viewMode, onViewModeChange,
                 typeFilter === 'video' ? 'bg-surface shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground',
               )}
               aria-label="Videos only"
+              title="Videos only"
             ><Film className="h-3.5 w-3.5" /></button>
           </div>
         )}
