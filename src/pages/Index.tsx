@@ -238,6 +238,14 @@ export default function Index() {
                     return next;
                   });
                 }}
+                onSelectRange={(add, remove) => {
+                  setSelectedIds(prev => {
+                    const next = new Set(prev);
+                                    remove.forEach(id => next.delete(id));
+                                    add.forEach(id => next.add(id));
+                    return next;
+                  });
+                }}
               />
             ) : viewMode === 'map' ? (
               <PhotoMap photos={mapPhotos} onSelect={setSelectedPhoto} />

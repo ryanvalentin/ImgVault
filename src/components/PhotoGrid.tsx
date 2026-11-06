@@ -14,6 +14,7 @@ interface PhotoGridProps {
   deleteMode?: boolean;
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string) => void;
+  onSelectRange?: (add: string[], remove: string[]) => void;
 }
 
 // A row is either a date header or a row of photo thumbnails
@@ -47,12 +48,13 @@ function buildRows(photos: Photo[], cols: number): GridRow[] {
   return rows;
 }
 
-function PhotoThumbnail({ photo, onSelect, deleteMode, selected, onToggleSelect }: {
+function PhotoThumbnail({ photo, onSelect, deleteMode, selected, onToggleSelect, onShiftSelect }: {
   photo: Photo;
   onSelect?: (p: Photo) => void;
   deleteMode?: boolean;
   selected?: boolean;
   onToggleSelect?: (id: string) => void;
+  onShiftSelect?: (id: string) => void;
 }) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -61,8 +63,11 @@ function PhotoThumbnail({ photo, onSelect, deleteMode, selected, onToggleSelect 
 
   const imgSrc = failed ? null : (photo.thumbnailUrl || photo.fullUrl);
 
-  const handleClick = () => {
-    if (deleteMode && onToggleSelect) {
+  const handleClick = (e: React.MouseEvent) => {
+    if (deleteMode && e.shiftKey && onShiftSelect) {
+      window.getSelection()?.removeAllRanges();
+      onShiftSelect(photo.id);
+    } else if (deleteMode && onToggleSelect) {
       onToggleSelect(photo.id);
     } else if (onSelect) {
       onSelect(photo);
@@ -163,10 +168,47 @@ function PhotoThumbnail({ photo, onSelect, deleteMode, selected, onToggleSelect 
   );
 }
 
-export default function PhotoGrid({ photos, onSelect, hasMore, loadingMore, onLoadMore, deleteMode, selectedIds, onToggleSelect }: PhotoGridProps) {
+export default function PhotoGrid({ photos, onSelect, hasMore, loadingMore, onLoadMore, deleteMode, selectedIds, onToggleSelect, onSelectRange }: PhotoGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [cols, setCols] = useState(4);
+  const lastSelectedRef = useRef<string | null>(null);
+  const lastRangeRef = useRef<string[]>([]);
 
+  useEffect(() => {
+    if (!deleteMode) {
+      lastSelectedRef.current = null;
+      lastRangeRef.current = [];
+    }
+  }, [deleteMode]);
+
+  const handleToggle = useCallback((id: string) => {
+    lastSelectedRef.current = id;
+    lastRangeRef.current = [];
+    onToggleSelect?.(id);
+  }, [onToggleSelect]);
+
+  const handleShiftSelect = useCallback((id: string) => {
+    const anchor = lastSelectedRef.current;
+    if (!anchor || anchor === id || !onSelectRange) {
+      handleToggle(id);
+      return;
+    }
+    // Use displayed (date-grouped) order
+    const ordered = Array.from(groupByDate(photos).values()).flat();
+    const a = ordered.findIndex(p => p.id === anchor);
+    const b = ordered.findIndex(p => p.id === id);
+    if (a < 0 || b < 0) {
+      handleToggle(id);
+      return;
+    }
+    const [start, end] = a < b ? [a, b] : [b, a];
+    const range = ordered.slice(start, end + 1).map(p => p.id);
+    const rangeSet = new Set(range);
+    // Anchor stays fixed so repeated Shift+clicks resize the range; items of the previous range outside the new one are unselected
+    const remove = lastRangeRef.current.filter(rid => !rangeSet.has(rid));
+    onSelectRange(range, remove);
+    lastRangeRef.current = range;
+  },  [photos, onSelectRange, handleToggle]);
 
   // Measure container width and compute columns
   const updateCols = useCallback(() => {
@@ -295,7 +337,8 @@ export default function PhotoGrid({ photos, onSelect, hasMore, loadingMore, onLo
                   onSelect={onSelect}
                   deleteMode={deleteMode}
                   selected={selectedIds?.has(photo.id)}
-                  onToggleSelect={onToggleSelect}
+                  onToggleSelect={handleToggle}
+                  onShiftSelect={handleShiftSelect}
                 />
               ))}
             </div>
