@@ -81,7 +81,7 @@ function PhotoThumbnail({ photo, onSelect, deleteMode, selected, onToggleSelect,
       onMouseLeave={() => setPlayingLive(false)}
       className={cn(
         "group relative overflow-hidden bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 outline-none active:scale-[0.97] transition-all duration-150",
-        deleteMode && selected && "ring-2 ring-destructive ring-offset-1 ring-offset-background",
+        deleteMode && selected && "ring-2 ring-selected ring-offset-1 ring-offset-background",
       )}
       style={{ borderRadius: 'var(--thumb-radius)', aspectRatio: '1' }}
     >
@@ -142,7 +142,7 @@ function PhotoThumbnail({ photo, onSelect, deleteMode, selected, onToggleSelect,
       {deleteMode && (
         <div className="absolute top-1.5 right-1.5 z-10">
           {selected ? (
-            <CheckCircle2 className="h-5 w-5 text-destructive drop-shadow-md" />
+            <CheckCircle2 className="h-5 w-5 text-selected drop-shadow-md" />
           ) : (
             <Circle className="h-5 w-5 text-white/70 drop-shadow-md" />
           )}
@@ -283,7 +283,7 @@ export default function PhotoGrid({ photos, onSelect, hasMore, loadingMore, onLo
 
   return (
     <div className="h-full flex flex-col">
-      <div ref={containerRef} className="flex-1 overflow-y-auto scrollbar-thin min-h-0">
+      <div ref={containerRef} className="flex-1 overflow-y-auto scrollbar-thin min-h-0 px-1">
       <div
         style={{
           height: `${virtualizer.getTotalSize()}px`,

@@ -201,7 +201,7 @@ export default function Index() {
         />
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden lg:pb-0">
           {(viewMode === 'grid' || viewMode === 'map') && (
-            <div className="px-3 sm:px-5 pt-3 sm:pt-4 pb-2">
+            <div className="px-3 sm:px-6 pt-3 sm:pt-4 pb-2">
               <SearchBar
                 value={searchQuery}
                 onChange={setSearchQuery}

@@ -215,10 +215,10 @@ export default function AppHeader({ onToggleSidebar, viewMode, onViewModeChange,
           <button
             onClick={() => onDeleteModeChange(!deleteMode)}
             className={cn(
-              'p-2 rounded-md transition-colors active:scale-95',
-              deleteMode ? 'bg-destructive text-destructive-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary',
+              'px-2 py-1.5 rounded-md transition-colors active:scale-95',
+              deleteMode ? 'bg-selected text-selected-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary',
             )}
-            aria-label="Toggle delete mode"
+            aria-label="Toggle selection mode"
           >
             <Pencil className="h-4 w-4" />
           </button>
