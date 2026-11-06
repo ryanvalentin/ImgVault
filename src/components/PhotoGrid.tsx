@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Play, MapPin, Calendar, CheckCircle2, Circle } from 'lucide-react';
+import { Play, MapPin, Calendar, CheckCircle2, Circle, Disc2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Photo } from '@/lib/mock-data';
 
@@ -128,6 +128,12 @@ function PhotoThumbnail({ photo, onSelect, deleteMode, selected, onToggleSelect 
         </div>
       )}
 
+      {photo.type === 'image' && liveUrl && (
+        <div className="absolute top-2 left-2">
+          <Disc2 className="h-4 w-4 text-white/70 drop-shadow-md" />
+        </div>
+      )}
+
       {deleteMode && (
         <div className="absolute top-1.5 right-1.5 z-10">
           {selected ? (
@@ -160,7 +166,7 @@ function PhotoThumbnail({ photo, onSelect, deleteMode, selected, onToggleSelect 
 export default function PhotoGrid({ photos, onSelect, hasMore, loadingMore, onLoadMore, deleteMode, selectedIds, onToggleSelect }: PhotoGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [cols, setCols] = useState(4);
-  
+
 
   // Measure container width and compute columns
   const updateCols = useCallback(() => {
