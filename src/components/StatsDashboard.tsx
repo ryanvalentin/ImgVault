@@ -104,7 +104,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 const SimpleTooltip = ({ active, payload, formatter }: any) => {
   if (!active || !payload?.length) return null;
-  console.log(payload);
   return (
     <div className="bg-card border border-border rounded-lg px-3 py-1.5 shadow-lg text-xs">
       <p className="font-medium text-foreground">
