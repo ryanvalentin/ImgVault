@@ -102,6 +102,20 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
+const SimpleTooltip = ({ active, payload, formatter }: any) => {
+  if (!active || !payload?.length) return null;
+  console.log(payload);
+  return (
+    <div className="bg-card border border-border rounded-lg px-3 py-1.5 shadow-lg text-xs">
+      <p className="font-medium text-foreground">
+        {formatter
+          ? formatter(payload[0].value, payload[0].name)
+          : payload[0].value}
+      </p>
+    </div>
+  );
+};
+
 function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
@@ -276,23 +290,18 @@ export default function StatsDashboard({ stats }: StatsDashboardProps) {
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(value: number, name: string) => [
-                    `${value} photos`,
-                    name,
-                  ]}
-                  contentStyle={{
-                    background: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                  }}
+                  content={
+                    <SimpleTooltip
+                      formatter={(value: number, name: string) =>
+                        `${name}: ${value} ${value === 1 ? "photo" : "photos"}`
+                      }
+                    />
+                  }
                 />
                 <Legend
                   wrapperStyle={{ fontSize: "11px" }}
                   formatter={(value) => (
-                    <span style={{ color: "hsl(var(--foreground))" }}>
-                      {value}
-                    </span>
+                    <span className="text-foreground">{value}</span>
                   )}
                 />
               </PieChart>
