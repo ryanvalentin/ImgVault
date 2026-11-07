@@ -57,7 +57,7 @@ export default function Index() {
 
   // Debounce search query
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
