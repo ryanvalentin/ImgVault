@@ -33,11 +33,12 @@ const CARTO_API_KEY_URL = 'https://carto.com/basemaps/apikey/';
 
 interface SettingsViewProps {
   onSelectPhoto?: (photo: Photo) => void;
+  metadataRevision?: number;
 }
 
 type SettingsTab = 'general' | 'cleanup' | 'stats' | 'trash';
 
-export default function SettingsView({ onSelectPhoto }: SettingsViewProps) {
+export default function SettingsView({ onSelectPhoto, metadataRevision = 0 }: SettingsViewProps) {
   const [tab, setTab] = useState<SettingsTab>('general');
   const [geocodeLang, setGeocodeLang] = useState('en');
   const [cartoApiKey, setCartoApiKey] = useState('');
@@ -329,7 +330,7 @@ export default function SettingsView({ onSelectPhoto }: SettingsViewProps) {
 
         {tab === 'cleanup' && (
           <div className="h-full -mx-1">
-            <CleanupView onSelect={onSelectPhoto} />
+            <CleanupView onSelect={onSelectPhoto} metadataRevision={metadataRevision} />
           </div>
         )}
 

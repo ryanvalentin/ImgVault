@@ -7,25 +7,25 @@ export interface Photo {
   path: string;
   folder: string;
   type: 'image' | 'video';
-  width: number;
-  height: number;
+  width: number | null;
+  height: number | null;
   thumbnailUrl: string;
   fullUrl: string;
   fileSize: number;
   duration?: number;
   liveVideo?: { id: string; filename: string; url: string; duration?: number };
   metadata: {
-    dateTaken?: string;
-    location?: string;
-    camera?: string;
-    lens?: string;
-    iso?: number;
-    aperture?: string;
-    shutterSpeed?: string;
-    gpsLat?: number;
-    gpsLng?: number;
-    country?: string;
-    city?: string;
+    dateTaken?: string | null;
+    location?: string | null;
+    camera?: string | null;
+    lens?: string | null;
+    iso?: number | null;
+    aperture?: string | null;
+    shutterSpeed?: string | null;
+    gpsLat?: number | null;
+    gpsLng?: number | null;
+    country?: string | null;
+    city?: string | null;
   };
   createdAt: string;
 }

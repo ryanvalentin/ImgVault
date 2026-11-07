@@ -3,6 +3,8 @@ import { X, MapPin, Camera, Clock, Maximize2, Trash2, ChevronLeft, ChevronRight,
 import { cn } from '@/lib/utils';
 import { useImageZoom } from '@/hooks/use-image-zoom';
 import type { Photo } from '@/lib/mock-data';
+import PhotoDetailsForm from '@/components/PhotoDetailsForm';
+import { Button } from '@/components/ui/button';
 
 interface PhotoViewerProps {
   photo: Photo;
@@ -10,6 +12,7 @@ interface PhotoViewerProps {
   onClose: () => void;
   onNavigate: (photo: Photo) => void;
   onDelete?: (photo: Photo) => void;
+  onUpdate: (photo: Photo) => void;
 }
 
 function formatFileSize(bytes: number) {
@@ -32,9 +35,11 @@ function formatDateTime(dateStr: string) {
 const SWIPE_THRESHOLD = 50;
 const SWIPE_DOWN_THRESHOLD = 100;
 
-export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDelete }: PhotoViewerProps) {
+export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDelete, onUpdate }: PhotoViewerProps) {
   const [loaded, setLoaded] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
+  const editing = showInfo && editingPhotoId === photo.id;
   const thumbStripRef = useRef<HTMLDivElement>(null);
 
   const { containerRef, zoom, isZoomed, resetZoom, imageStyle, handlers: zoomHandlers } = useImageZoom();
@@ -59,6 +64,7 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
 
   useEffect(() => {
     setLoaded(false);
+    setEditingPhotoId(null);
     setSwipeOffset(0);
     setSwipeY(0);
     swipeDirection.current = null;
@@ -77,6 +83,7 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
+      if (editing) return;
       if (e.key === 'Escape') {
         if (isZoomed) { resetZoom(); } else { onClose(); }
       }
@@ -88,7 +95,7 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose, goPrev, goNext, isZoomed, resetZoom]);
+  }, [onClose, goPrev, goNext, isZoomed, resetZoom, editing]);
 
   // Touch handlers for swipe — only when NOT zoomed
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -187,7 +194,7 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
             </button>
           )}
           <button
-            onClick={() => setShowInfo(!showInfo)}
+            onClick={() => { setShowInfo(!showInfo); setEditingPhotoId(null); }}
             className={cn(
               'p-2.5 rounded-full transition-colors active:scale-95',
               showInfo ? 'bg-white/20 text-white' : 'text-white/60 hover:text-white hover:bg-white/10',
@@ -287,12 +294,25 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
             className="hidden lg:block absolute right-0 top-0 bottom-0 w-72 bg-card border-l border-border overflow-y-auto p-5 fade-in"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="font-semibold text-foreground mb-4">Details</h3>
-            <div className="space-y-4 text-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-foreground">Details</h3>
+              {!editing && <Button size="sm" variant="outline" onClick={() => setEditingPhotoId(photo.id)}>Edit</Button>}
+            </div>
+            {editing ? (
+              <PhotoDetailsForm
+                key={photo.id}
+                photo={photo}
+                onCancel={() => setEditingPhotoId(null)}
+                onSaved={(updated) => {
+                  setEditingPhotoId((current) => current === updated.id ? null : current);
+                  onUpdate(updated);
+                }}
+              />
+            ) : (<div className="space-y-4 text-sm">
               <div>
                 <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">File</p>
                 <p className="text-foreground font-medium">{photo.filename}</p>
-                <p className="text-muted-foreground text-xs">{photo.width} × {photo.height} · {formatFileSize(photo.fileSize)}</p>
+                <p className="text-muted-foreground text-xs">{photo.width ?? '—'} × {photo.height ?? '—'} · {formatFileSize(photo.fileSize)}</p>
               </div>
 
               {meta.dateTaken && (
@@ -325,7 +345,14 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
                 </div>
               )}
 
-              {(meta.aperture || meta.shutterSpeed || meta.iso) && (
+              {meta.lens && (
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">Lens</p>
+                  <p className="text-foreground">{meta.lens}</p>
+                </div>
+              )}
+
+              {(meta.aperture || meta.shutterSpeed || meta.iso != null) && (
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Exposure</p>
                   <div className="grid grid-cols-3 gap-2">
@@ -341,7 +368,7 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
                         <p className="text-foreground font-mono text-sm">{meta.shutterSpeed}</p>
                       </div>
                     )}
-                    {meta.iso && (
+                    {meta.iso != null && (
                       <div className="bg-muted rounded-md p-2 text-center">
                         <p className="text-xs text-muted-foreground">ISO</p>
                         <p className="text-foreground font-mono text-sm">{meta.iso}</p>
@@ -355,7 +382,7 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
                 <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Path</p>
                 <p className="text-foreground font-mono text-xs break-all">{photo.path}</p>
               </div>
-            </div>
+            </div>)}
           </div>
         )}
 
@@ -369,7 +396,7 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
             <div className="space-y-3 text-sm">
               <div>
                 <p className="text-foreground font-medium truncate">{photo.filename}</p>
-                <p className="text-muted-foreground text-xs">{photo.width} × {photo.height} · {formatFileSize(photo.fileSize)}</p>
+                <p className="text-muted-foreground text-xs">{photo.width ?? '—'} × {photo.height ?? '—'} · {formatFileSize(photo.fileSize)}</p>
               </div>
               {meta.dateTaken && (
                 <div className="flex items-center gap-2">

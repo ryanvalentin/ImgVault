@@ -101,6 +101,10 @@
     --surface: 225 14% 11%;
     --surface-elevated: 225 14% 14%;
     --overlay: 0 0% 0%;
+
+    ::-webkit-calendar-picker-indicator {
+      filter: invert(1);
+    }
   }
 }
 

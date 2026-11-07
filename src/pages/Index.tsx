@@ -46,6 +46,7 @@ export default function Index() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [deleteMode, setDeleteMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [metadataRevision, setMetadataRevision] = useState(0);
 
   // Debounce search query
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -169,6 +170,27 @@ export default function Index() {
     }
   };
 
+  const handlePhotoUpdated = async (updated: Photo) => {
+    setSelectedPhoto(current => current?.id === updated.id ? updated : current);
+    setPhotos(current => current.map(photo => photo.id === updated.id ? updated : photo));
+    setMapPhotos(current => current.map(photo => photo.id === updated.id ? updated : photo));
+    setStats(null);
+    setMetadataRevision(revision => revision + 1);
+    toast.success('Photo details updated');
+    try {
+      const [photoResult, mapResult] = await Promise.all([
+        fetchPhotos({ ...apiParams, limit: Math.min(50000, Math.max(PAGE_SIZE, photos.length)), offset: 0 }),
+        fetchMapPhotos({ ...apiParams, limit: 20000 }),
+      ]);
+      setPhotos(photoResult.items);
+      setTotalCount(photoResult.total);
+      setMapPhotos(mapResult.items);
+    } catch (error) {
+      console.error('Failed to refresh photos after updating details:', error);
+      toast.error('Photo saved, but the library could not be refreshed');
+    }
+  };
+
   return (
     <div className="app-shell flex flex-col bg-background overflow-hidden">
       <AppHeader
@@ -248,17 +270,17 @@ export default function Index() {
                 }}
               />
             ) : viewMode === 'map' ? (
-              <PhotoMap photos={mapPhotos} onSelect={setSelectedPhoto} />
+              <PhotoMap photos={mapPhotos} onSelect={setSelectedPhoto} metadataRevision={metadataRevision} />
             ) : viewMode === 'cleanup' ? (
-              <CleanupView onSelect={setSelectedPhoto} />
+              <CleanupView onSelect={setSelectedPhoto} metadataRevision={metadataRevision} />
             ) : viewMode === 'trash' ? (
               <TrashView />
             ) : viewMode === 'albums' ? (
-              <AlbumsView onSelectPhoto={setSelectedPhoto} />
+              <AlbumsView onSelectPhoto={setSelectedPhoto} metadataRevision={metadataRevision} />
             ) : viewMode === 'recent' ? (
-              <RecentView onSelectPhoto={setSelectedPhoto} />
+              <RecentView onSelectPhoto={setSelectedPhoto} metadataRevision={metadataRevision} />
             ) : viewMode === 'settings' ? (
-              <SettingsView onSelectPhoto={setSelectedPhoto} />
+              <SettingsView onSelectPhoto={setSelectedPhoto} metadataRevision={metadataRevision} />
             ) : (
               <StatsDashboard stats={stats} />
             )}
@@ -276,6 +298,7 @@ export default function Index() {
           onClose={() => setSelectedPhoto(null)}
           onNavigate={setSelectedPhoto}
           onDelete={handleDeleteSingle}
+          onUpdate={handlePhotoUpdated}
         />
       )}
     </div>

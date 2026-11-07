@@ -18,6 +18,7 @@ L.Icon.Default.mergeOptions({
 interface PhotoMapProps {
   photos: Photo[];
   onSelect: (photo: Photo) => void;
+  metadataRevision?: number;
 }
 
 function FitBounds({ points, hasFilters }: { points: { lat: number; lng: number }[]; hasFilters: boolean }) {
@@ -34,7 +35,7 @@ function FitBounds({ points, hasFilters }: { points: { lat: number; lng: number 
   return null;
 }
 
-export default function PhotoMap({ photos, onSelect }: PhotoMapProps) {
+export default function PhotoMap({ photos, onSelect, metadataRevision = 0 }: PhotoMapProps) {
   const [countryFilter, setCountryFilter] = useState('');
   const [cityFilter, setCityFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -58,12 +59,12 @@ export default function PhotoMap({ photos, onSelect }: PhotoMapProps) {
         setUseClusterMode(false);
       })
       .finally(() => setLoading(false));
-  }, [countryFilter, cityFilter]);
+  }, [countryFilter, cityFilter, metadataRevision]);
 
   // Load countries on mount
   useEffect(() => {
     fetchMapCountries().then(setCountries).catch(() => {});
-  }, []);
+  }, [metadataRevision]);
 
   // Load Carto API key on mount
   useEffect(() => {
@@ -75,7 +76,7 @@ export default function PhotoMap({ photos, onSelect }: PhotoMapProps) {
   // Load cities when country changes
   useEffect(() => {
     fetchMapCities(countryFilter || undefined).then(setCities).catch(() => {});
-  }, [countryFilter]);
+  }, [countryFilter, metadataRevision]);
 
   // Fallback: filter photos client-side
   const geoPhotos = useMemo(

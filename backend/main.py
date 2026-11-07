@@ -8,13 +8,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional
 from contextlib import asynccontextmanager
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from fastapi import FastAPI, Query, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import (
-    init_db, upsert_photo, upsert_photos_batch, search_photos, get_live_videos, link_live_photos, get_folder_tree, get_photo_by_id,
+    init_db, upsert_photo, upsert_photos_batch, search_photos, get_live_videos, link_live_photos, get_folder_tree, get_photo_by_id, update_photo_metadata,
     get_stats, remove_missing_photos, get_indexed_hashes, get_indexed_paths, remove_photos_by_paths,
     get_map_photos, get_map_clusters, get_map_countries, get_map_cities,
     get_duplicate_photos, delete_photos_by_ids,
@@ -436,6 +436,35 @@ def get_photo(photo_id: str):
     return photo
 
 
+class UpdatePhotoRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    width: Optional[int] = Field(default=None, ge=0)
+    height: Optional[int] = Field(default=None, ge=0)
+    date_taken: Optional[str] = None
+    location: Optional[str] = None
+    camera: Optional[str] = None
+    lens: Optional[str] = None
+    iso: Optional[int] = Field(default=None, ge=0)
+    aperture: Optional[str] = None
+    shutter_speed: Optional[str] = None
+    gps_lat: Optional[float] = Field(default=None, ge=-90, le=90)
+    gps_lng: Optional[float] = Field(default=None, ge=-180, le=180)
+    country: Optional[str] = None
+    city: Optional[str] = None
+
+
+@app.patch("/api/photos/{photo_id}")
+def update_photo_endpoint(photo_id: str, req: UpdatePhotoRequest):
+    updates = req.model_dump(exclude_unset=True)
+    if not updates:
+        raise HTTPException(status_code=422, detail="At least one metadata field is required")
+    photo = update_photo_metadata(photo_id, updates)
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    return photo
+
+
 @app.get("/api/thumbnails/{photo_id}")
 def get_thumbnail(photo_id: str):
     photo = get_photo_by_id(photo_id)
@@ -751,6 +780,9 @@ def delete_photos_endpoint(req: DeletePhotosRequest):
             "file_hash": entry.get("file_hash"),
             "file_modified_at": entry.get("file_modified_at"),
             "live": entry.get("live"),
+            "country": entry.get("country"),
+            "city": entry.get("city"),
+            "manual_fields": entry["manual_fields"],
         })
 
     return {"deleted": len(removed), "movedToTrash": moved_to_trash, "ids": [r["id"] for r in removed]}
@@ -826,6 +858,9 @@ def restore_from_trash(req: RestoreRequest):
                     "thumbnail_path": item.get("thumbnail_path"),
                     "file_hash": item.get("file_hash"),
                     "file_modified_at": item.get("file_modified_at"),
+                    "country": item.get("country"),
+                    "city": item.get("city"),
+                    "manual_fields": item["manual_fields"],
                 })
             except OSError as e:
                 logger.warning(f"Failed to restore {item['original_path']}: {e}")

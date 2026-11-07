@@ -6,9 +6,10 @@ import PhotoGrid from './PhotoGrid';
 
 interface RecentViewProps {
   onSelectPhoto?: (photo: Photo) => void;
+  metadataRevision?: number;
 }
 
-export default function RecentView({ onSelectPhoto }: RecentViewProps) {
+export default function RecentView({ onSelectPhoto, metadataRevision = 0 }: RecentViewProps) {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -18,7 +19,7 @@ export default function RecentView({ onSelectPhoto }: RecentViewProps) {
       .then(res => setPhotos(res.items))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [metadataRevision]);
 
   if (loading) {
     return (

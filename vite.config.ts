@@ -46,7 +46,7 @@ export default defineConfig(({ mode }) => ({
             },
           },
           {
-            urlPattern: /^\/api\/(stats|folders|map-countries|map-cities)/,
+            urlPattern: /^\/api\/folders/,
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'api-cache',

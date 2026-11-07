@@ -290,7 +290,7 @@ function SimilarGroupsSection({ groups, selected, onToggleSelect, onAutoSelect, 
   );
 }
 
-export default function CleanupView({ onSelect }: { onSelect: (photo: Photo) => void }) {
+export default function CleanupView({ onSelect, metadataRevision = 0 }: { onSelect: (photo: Photo) => void; metadataRevision?: number }) {
   const [data, setData] = useState<CleanupData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -331,7 +331,7 @@ export default function CleanupView({ onSelect }: { onSelect: (photo: Photo) => 
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); }, [load, metadataRevision]);
 
   const toggleSelect = (id: string) => {
     setSelected(prev => {

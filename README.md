@@ -193,8 +193,22 @@ All endpoints are prefixed with `/api/`.
 |--------|----------|-------------|
 | `GET` | `/api/photos` | Search/browse photos (paginated) |
 | `GET` | `/api/photos/{id}` | Get single photo metadata |
+| `PATCH` | `/api/photos/{id}` | Partially update photo metadata |
 | `GET` | `/api/photos/{id}/file` | Serve original photo file |
 | `GET` | `/api/thumbnails/{path}` | Serve thumbnail image |
+
+`PATCH /api/photos/{id}` accepts a JSON object with any of `width`, `height`,
+`date_taken`, `location`, `camera`, `lens`, `iso`, `aperture`, `shutter_speed`,
+`gps_lat`, `gps_lng`, `country`, and `city`. Omitted fields are unchanged; use
+`null` to clear a field. It returns the updated database entry in the same shape
+as `GET /api/photos/{id}`. Unknown fields and empty updates are rejected. GPS
+coordinates are not automatically reverse-geocoded, so update location, city,
+and country separately when needed. Changes affect the index, not the original
+file's metadata. Fields edited through this endpoint, including fields cleared
+with `null`, are preserved during reindexing; unedited fields are refreshed.
+Edits made before manual-field tracking was added cannot be identified. Send
+those fields again through the API, or change and save them in the editor, to
+protect them.
 
 ### Folders
 
@@ -270,7 +284,7 @@ All endpoints are prefixed with `/api/`.
 - **Composite indexes** on `(country, city)`, `(folder)`, `(date_taken)`, `(phash)`
 - **Server-side map clustering** — Groups thousands of markers into clusters via SQL aggregation
 - **Persistent geocode cache** — Avoids redundant Nominatim API calls across reindexes
-- **Service Worker caching** — Thumbnails cached for 30 days (up to 5,000 entries), API metadata cached for 5 minutes
+- **Service Worker caching** — Thumbnails cached for 30 days (up to 5,000 entries), folder data cached for 5 minutes
 - **WebP thumbnails** — ~30% smaller than JPEG equivalents
 
 ---

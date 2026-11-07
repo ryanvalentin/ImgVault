@@ -91,6 +91,66 @@ export async function fetchPhotos(params: {
   return fetchJson(`${API_BASE}/photos?${searchParams}`);
 }
 
+export interface PhotoMetadataUpdate {
+  width?: number | null;
+  height?: number | null;
+  date_taken?: string | null;
+  location?: string | null;
+  camera?: string | null;
+  lens?: string | null;
+  iso?: number | null;
+  aperture?: string | null;
+  shutter_speed?: string | null;
+  gps_lat?: number | null;
+  gps_lng?: number | null;
+  country?: string | null;
+  city?: string | null;
+}
+
+interface UpdatedPhotoEntry {
+  width: number | null;
+  height: number | null;
+  date_taken: string | null;
+  location: string | null;
+  camera: string | null;
+  lens: string | null;
+  iso: number | null;
+  aperture: string | null;
+  shutter_speed: string | null;
+  gps_lat: number | null;
+  gps_lng: number | null;
+  country: string | null;
+  city: string | null;
+  file_modified_at: string | null;
+}
+
+export async function updatePhoto(photo: Photo, updates: PhotoMetadataUpdate): Promise<Photo> {
+  const entry = await fetchJson<UpdatedPhotoEntry>(`${API_BASE}/photos/${encodeURIComponent(photo.id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+  return {
+    ...photo,
+    width: entry.width,
+    height: entry.height,
+    createdAt: entry.date_taken || entry.file_modified_at || '',
+    metadata: {
+      dateTaken: entry.date_taken,
+      location: entry.location,
+      camera: entry.camera,
+      lens: entry.lens,
+      iso: entry.iso,
+      aperture: entry.aperture,
+      shutterSpeed: entry.shutter_speed,
+      gpsLat: entry.gps_lat,
+      gpsLng: entry.gps_lng,
+      country: entry.country,
+      city: entry.city,
+    },
+  };
+}
+
 export async function fetchFolders(): Promise<Folder[]> {
   if (!(await isApiAvailable())) return mockFolderTree;
 

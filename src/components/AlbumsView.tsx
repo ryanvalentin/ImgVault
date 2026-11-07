@@ -20,9 +20,10 @@ interface AlbumsViewProps {
   onSelectPhoto?: (photo: Photo) => void;
   addingPhotoIds?: string[];
   onAddComplete?: () => void;
+  metadataRevision?: number;
 }
 
-export default function AlbumsView({ onSelectPhoto, addingPhotoIds, onAddComplete }: AlbumsViewProps) {
+export default function AlbumsView({ onSelectPhoto, addingPhotoIds, onAddComplete, metadataRevision = 0 }: AlbumsViewProps) {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
@@ -64,6 +65,14 @@ export default function AlbumsView({ onSelectPhoto, addingPhotoIds, onAddComplet
     } catch { toast.error('Failed to load album photos'); }
     finally { setLoadingPhotos(false); }
   }, []);
+
+  useEffect(() => {
+    if (metadataRevision && selectedAlbum) {
+      fetchAlbumPhotos(selectedAlbum.id)
+        .then(res => { setAlbumPhotos(res.items); setAlbumTotal(res.total); })
+        .catch(() => toast.error('Failed to refresh album photos'));
+    }
+  }, [metadataRevision, selectedAlbum]);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;

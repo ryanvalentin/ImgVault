@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import json
 from typing import Optional
 
 DB_PATH = os.environ.get("DB_PATH", "/data/db/snapvault.db")
@@ -41,7 +42,8 @@ def init_db():
             file_hash TEXT,
             phash TEXT,
             indexed_at TEXT DEFAULT (datetime('now')),
-            file_modified_at TEXT
+            file_modified_at TEXT,
+            manual_fields TEXT NOT NULL DEFAULT '[]'
         );
 
         CREATE INDEX IF NOT EXISTS idx_photos_folder ON photos(folder);
@@ -75,6 +77,9 @@ def init_db():
             thumbnail_path TEXT,
             file_hash TEXT,
             file_modified_at TEXT,
+            country TEXT,
+            city TEXT,
+            manual_fields TEXT NOT NULL DEFAULT '[]',
             deleted_at TEXT DEFAULT (datetime('now'))
         );
 
@@ -91,6 +96,15 @@ def init_db():
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
         except Exception:
             pass
+    for table, column, definition in [
+        ("photos", "manual_fields", "TEXT NOT NULL DEFAULT '[]'"),
+        ("trash", "manual_fields", "TEXT NOT NULL DEFAULT '[]'"),
+        ("trash", "country", "TEXT"),
+        ("trash", "city", "TEXT"),
+    ]:
+        columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+        if column not in columns:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_live ON photos(live)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_phash ON photos(phash)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_country ON photos(country)")
@@ -152,21 +166,31 @@ def get_all_settings() -> dict:
     return {row["key"]: row["value"] for row in rows}
 
 
-_UPSERT_SQL = """
+PHOTO_METADATA_FIELDS = frozenset({
+    "width", "height", "date_taken", "location", "camera", "lens", "iso",
+    "aperture", "shutter_speed", "gps_lat", "gps_lng", "country", "city",
+})
+
+_METADATA_UPDATES = ", ".join(
+    f"{field} = CASE WHEN EXISTS "
+    f"(SELECT 1 FROM json_each(photos.manual_fields) WHERE value = '{field}') "
+    f"THEN photos.{field} ELSE excluded.{field} END"
+    for field in sorted(PHOTO_METADATA_FIELDS)
+)
+
+_UPSERT_SQL = f"""
     INSERT INTO photos (id, filename, path, folder, type, width, height,
         file_size, duration, date_taken, location, camera, lens, iso, aperture,
         shutter_speed, gps_lat, gps_lng, thumbnail_path, file_hash, phash,
-        country, city, file_modified_at)
+        country, city, file_modified_at, manual_fields)
     VALUES (:id, :filename, :path, :folder, :type, :width, :height,
         :file_size, :duration, :date_taken, :location, :camera, :lens, :iso, :aperture,
         :shutter_speed, :gps_lat, :gps_lng, :thumbnail_path, :file_hash, :phash,
-        :country, :city, :file_modified_at)
+        :country, :city, :file_modified_at, :manual_fields)
     ON CONFLICT(path) DO UPDATE SET
-        filename=:filename, folder=:folder, type=:type, width=:width, height=:height,
-        file_size=:file_size, duration=:duration, date_taken=:date_taken, location=:location, camera=:camera,
-        lens=:lens, iso=:iso, aperture=:aperture, shutter_speed=:shutter_speed,
-        gps_lat=:gps_lat, gps_lng=:gps_lng, thumbnail_path=:thumbnail_path,
-        file_hash=:file_hash, phash=:phash, country=:country, city=:city,
+        filename=:filename, folder=:folder, type=:type,
+        file_size=:file_size, duration=:duration, thumbnail_path=:thumbnail_path,
+        file_hash=:file_hash, phash=:phash, {_METADATA_UPDATES},
         file_modified_at=:file_modified_at,
         indexed_at=datetime('now')
 """
@@ -174,7 +198,7 @@ _UPSERT_SQL = """
 
 def upsert_photo(photo: dict):
     conn = get_db()
-    conn.execute(_UPSERT_SQL, {"phash": None, "country": None, "city": None, **photo})
+    conn.execute(_UPSERT_SQL, {"phash": None, "country": None, "city": None, "manual_fields": "[]", **photo})
     conn.commit()
     conn.close()
 
@@ -184,7 +208,7 @@ def upsert_photos_batch(photos: list[dict]):
     if not photos:
         return
     conn = get_db()
-    conn.executemany(_UPSERT_SQL, photos)
+    conn.executemany(_UPSERT_SQL, ({"manual_fields": "[]", **photo} for photo in photos))
     conn.commit()
     conn.close()
 
@@ -396,6 +420,29 @@ def get_photo_by_id(photo_id: str) -> Optional[dict]:
     row = conn.execute("SELECT * FROM photos WHERE id = ?", (photo_id,)).fetchone()
     conn.close()
     return dict(row) if row else None
+
+
+def update_photo_metadata(photo_id: str, updates: dict) -> Optional[dict]:
+    if not updates or not updates.keys() <= PHOTO_METADATA_FIELDS:
+        raise ValueError("Invalid photo metadata fields")
+
+    conn = get_db()
+    try:
+        with conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT manual_fields FROM photos WHERE id = ?", (photo_id,)).fetchone()
+            if row is None:
+                return None
+            manual_fields = set(json.loads(row["manual_fields"])) | updates.keys()
+            assignments = ", ".join(f"{field} = ?" for field in updates)
+            conn.execute(
+                f"UPDATE photos SET {assignments}, manual_fields = ? WHERE id = ?",
+                [*updates.values(), json.dumps(sorted(manual_fields)), photo_id],
+            )
+            row = conn.execute("SELECT * FROM photos WHERE id = ?", (photo_id,)).fetchone()
+            return dict(row)
+    finally:
+        conn.close()
 
 
 def get_indexed_hashes() -> dict[str, str]:
@@ -641,11 +688,13 @@ def add_to_trash(entry: dict):
     conn.execute("""
         INSERT OR REPLACE INTO trash (id, filename, original_path, trash_path, folder, type,
             width, height, file_size, duration, date_taken, location, camera, lens, iso, aperture,
-            shutter_speed, gps_lat, gps_lng, thumbnail_path, file_hash, file_modified_at, live)
+            shutter_speed, gps_lat, gps_lng, thumbnail_path, file_hash, file_modified_at, live,
+            country, city, manual_fields)
         VALUES (:id, :filename, :original_path, :trash_path, :folder, :type,
             :width, :height, :file_size, :duration, :date_taken, :location, :camera, :lens, :iso, :aperture,
-            :shutter_speed, :gps_lat, :gps_lng, :thumbnail_path, :file_hash, :file_modified_at, :live)
-    """, {"live": None, **entry})
+            :shutter_speed, :gps_lat, :gps_lng, :thumbnail_path, :file_hash, :file_modified_at, :live,
+            :country, :city, :manual_fields)
+    """, {"live": None, "country": None, "city": None, "manual_fields": "[]", **entry})
     conn.commit()
     conn.close()
 
