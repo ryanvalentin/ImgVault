@@ -1,9 +1,17 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Trash2, RotateCcw, CheckSquare, Square, Loader2, AlertTriangle, Clock } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { fetchTrash, restoreFromTrash, emptyTrash } from '@/lib/api-client';
-import { toast } from 'sonner';
+import { useState, useEffect, useCallback } from "react";
+import {
+  Trash2,
+  RotateCcw,
+  CheckSquare,
+  Square,
+  Loader2,
+  AlertTriangle,
+  Clock,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { fetchTrash, restoreFromTrash, emptyTrash } from "@/lib/api-client";
+import { toast } from "sonner";
 
 interface TrashItem {
   id: string;
@@ -29,10 +37,13 @@ function formatFileSize(bytes: number) {
 }
 
 function daysUntilPurge(deletedAt: string) {
-  const deleted = new Date(deletedAt + 'Z');
+  const deleted = new Date(deletedAt + "Z");
   const purgeDate = new Date(deleted.getTime() + 30 * 24 * 60 * 60 * 1000);
   const now = new Date();
-  const days = Math.max(0, Math.ceil((purgeDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+  const days = Math.max(
+    0,
+    Math.ceil((purgeDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
+  );
   return days;
 }
 
@@ -48,24 +59,27 @@ export default function TrashView() {
       const result = await fetchTrash();
       setItems(result.items);
     } catch (e) {
-      console.error('Failed to load trash:', e);
+      console.error("Failed to load trash:", e);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const toggleSelect = (id: string) => {
-    setSelected(prev => {
+    setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
 
   const selectAll = () => {
-    setSelected(new Set(items.map(i => i.id)));
+    setSelected(new Set(items.map((i) => i.id)));
   };
 
   const clearSelection = () => setSelected(new Set());
@@ -79,7 +93,7 @@ export default function TrashView() {
       setSelected(new Set());
       await load();
     } catch (e) {
-      toast.error('Failed to restore files');
+      toast.error("Failed to restore files");
     } finally {
       setProcessing(false);
     }
@@ -87,7 +101,12 @@ export default function TrashView() {
 
   const handlePermanentDelete = async () => {
     if (selected.size === 0 || processing) return;
-    if (!confirm(`Permanently delete ${selected.size} file(s)? This cannot be undone!`)) return;
+    if (
+      !confirm(
+        `Permanently delete ${selected.size} file(s)? This cannot be undone!`,
+      )
+    )
+      return;
     setProcessing(true);
     try {
       await emptyTrash(Array.from(selected));
@@ -95,7 +114,7 @@ export default function TrashView() {
       setSelected(new Set());
       await load();
     } catch (e) {
-      toast.error('Failed to delete files');
+      toast.error("Failed to delete files");
     } finally {
       setProcessing(false);
     }
@@ -103,15 +122,20 @@ export default function TrashView() {
 
   const handleEmptyAll = async () => {
     if (items.length === 0 || processing) return;
-    if (!confirm(`Permanently delete ALL ${items.length} file(s) in trash? This cannot be undone!`)) return;
+    if (
+      !confirm(
+        `Permanently delete ALL ${items.length} file(s) in trash? This cannot be undone!`,
+      )
+    )
+      return;
     setProcessing(true);
     try {
       await emptyTrash();
-      toast.success('Trash emptied');
+      toast.success("Trash emptied");
       setSelected(new Set());
       await load();
     } catch (e) {
-      toast.error('Failed to empty trash');
+      toast.error("Failed to empty trash");
     } finally {
       setProcessing(false);
     }
@@ -134,7 +158,9 @@ export default function TrashView() {
         <div className="text-center fade-in">
           <Trash2 className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
           <p className="text-foreground font-medium">Trash is empty</p>
-          <p className="text-sm text-muted-foreground mt-1">Deleted files will appear here for 30 days.</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Deleted files will appear here for 30 days.
+          </p>
         </div>
       </div>
     );
@@ -149,7 +175,7 @@ export default function TrashView() {
         <div className="flex items-center gap-2 text-sm">
           <Trash2 className="h-4 w-4 text-destructive" />
           <span className="font-medium text-foreground">
-            {items.length} item{items.length !== 1 ? 's' : ''} in trash
+            {items.length} item{items.length !== 1 ? "s" : ""} in trash
           </span>
           <span className="text-muted-foreground">
             · {formatFileSize(totalSize)}
@@ -179,7 +205,11 @@ export default function TrashView() {
               disabled={processing}
               className="gap-1.5"
             >
-              {processing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+              {processing ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RotateCcw className="h-3.5 w-3.5" />
+              )}
               Restore {selected.size}
             </Button>
             <Button
@@ -189,7 +219,11 @@ export default function TrashView() {
               disabled={processing}
               className="gap-1.5"
             >
-              {processing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              {processing ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="h-3.5 w-3.5" />
+              )}
               Delete permanently
             </Button>
           </>
@@ -210,8 +244,9 @@ export default function TrashView() {
       <div className="shrink-0 flex items-start gap-2 rounded-lg bg-muted/50 border border-border p-3 mb-3 text-xs text-foreground">
         <Clock className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
         <span>
-          Files in trash are automatically <strong>permanently deleted after 30 days</strong>.
-          You can restore them or manually empty the trash at any time.
+          Files in trash are automatically{" "}
+          <strong>permanently deleted after 30 days</strong>. You can restore
+          them or manually empty the trash at any time.
         </span>
       </div>
 
@@ -226,19 +261,19 @@ export default function TrashView() {
                 key={item.id}
                 onClick={() => toggleSelect(item.id)}
                 className={cn(
-                  'relative rounded-md overflow-hidden border-2 transition-all cursor-pointer group',
+                  "relative rounded-md overflow-hidden border-2 transition-all cursor-pointer group",
                   isSelected
-                    ? 'border-primary ring-1 ring-primary/30'
-                    : 'border-transparent hover:border-muted-foreground/30'
+                    ? "border-primary ring-1 ring-primary/30"
+                    : "border-transparent hover:border-muted-foreground/30",
                 )}
               >
                 {/* Select checkbox */}
                 <div
                   className={cn(
-                    'absolute top-1.5 left-1.5 z-10 w-5 h-5 rounded flex items-center justify-center transition-all',
+                    "absolute top-1.5 left-1.5 z-10 w-5 h-5 rounded flex items-center justify-center transition-all",
                     isSelected
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-black/50 text-white/70 opacity-0 group-hover:opacity-100'
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-black/50 text-white/70 opacity-0 group-hover:opacity-100",
                   )}
                 >
                   {isSelected ? (
@@ -249,14 +284,16 @@ export default function TrashView() {
                 </div>
 
                 {/* Days left badge */}
-                <span className={cn(
-                  "absolute top-1.5 right-1.5 z-10 text-[10px] font-semibold px-1.5 py-0.5 rounded",
-                  daysLeft <= 3
-                    ? "bg-destructive text-destructive-foreground"
-                    : daysLeft <= 7
-                    ? "bg-orange-500 text-white"
-                    : "bg-black/50 text-white"
-                )}>
+                <span
+                  className={cn(
+                    "absolute top-1.5 right-1.5 z-10 text-[10px] font-semibold px-1.5 py-0.5 rounded",
+                    daysLeft <= 3
+                      ? "bg-destructive text-destructive-foreground"
+                      : daysLeft <= 7
+                        ? "bg-orange-500 text-white"
+                        : "bg-black/50 text-white",
+                  )}
+                >
                   {daysLeft}d left
                 </span>
 
@@ -279,7 +316,9 @@ export default function TrashView() {
 
                 {/* Info */}
                 <div className="p-1.5 bg-card">
-                  <p className="text-[11px] text-foreground font-medium truncate">{item.filename}</p>
+                  <p className="text-[11px] text-foreground font-medium truncate">
+                    {item.filename}
+                  </p>
                   <p className="text-[10px] text-muted-foreground truncate">
                     {formatFileSize(item.fileSize)} · {item.folder}
                   </p>

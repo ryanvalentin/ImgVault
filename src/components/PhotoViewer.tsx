@@ -1,10 +1,23 @@
-import { useEffect, useCallback, useState, useRef } from 'react';
-import { X, MapPin, Camera, Clock, Maximize2, Trash2, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useImageZoom } from '@/hooks/use-image-zoom';
-import type { Photo } from '@/lib/mock-data';
-import PhotoDetailsForm from '@/components/PhotoDetailsForm';
-import { Button } from '@/components/ui/button';
+import { useEffect, useCallback, useState, useRef } from "react";
+import {
+  X,
+  MapPin,
+  Camera,
+  Clock,
+  Maximize2,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  Info,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useImageZoom } from "@/hooks/use-image-zoom";
+import type { Photo } from "@/lib/mock-data";
+import PhotoDetailsForm from "@/components/PhotoDetailsForm";
+import { Button } from "@/components/ui/button";
 
 interface PhotoViewerProps {
   photo: Photo;
@@ -22,33 +35,47 @@ function formatFileSize(bytes: number) {
 
 function formatDateTime(dateStr: string) {
   const d = new Date(dateStr);
-  return d.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   });
 }
 
 const SWIPE_THRESHOLD = 50;
 const SWIPE_DOWN_THRESHOLD = 100;
 
-export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDelete, onUpdate }: PhotoViewerProps) {
+export default function PhotoViewer({
+  photo,
+  photos,
+  onClose,
+  onNavigate,
+  onDelete,
+  onUpdate,
+}: PhotoViewerProps) {
   const [loaded, setLoaded] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
   const editing = showInfo && editingPhotoId === photo.id;
   const thumbStripRef = useRef<HTMLDivElement>(null);
 
-  const { containerRef, zoom, isZoomed, resetZoom, imageStyle, handlers: zoomHandlers } = useImageZoom();
+  const {
+    containerRef,
+    zoom,
+    isZoomed,
+    resetZoom,
+    imageStyle,
+    handlers: zoomHandlers,
+  } = useImageZoom();
 
   // Touch/swipe state (only when not zoomed)
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [swipeY, setSwipeY] = useState(0);
-  const swipeDirection = useRef<'horizontal' | 'vertical' | null>(null);
+  const swipeDirection = useRef<"horizontal" | "vertical" | null>(null);
 
   const currentIndex = photos.findIndex((p) => p.id === photo.id);
   const hasPrev = currentIndex > 0;
@@ -74,9 +101,15 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
   // Scroll thumbnail strip to center current photo
   useEffect(() => {
     if (thumbStripRef.current) {
-      const activeThumb = thumbStripRef.current.querySelector('[data-active="true"]');
+      const activeThumb = thumbStripRef.current.querySelector(
+        '[data-active="true"]',
+      );
       if (activeThumb) {
-        activeThumb.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        activeThumb.scrollIntoView({
+          behavior: "smooth",
+          inline: "center",
+          block: "nearest",
+        });
       }
     }
   }, [currentIndex]);
@@ -84,17 +117,21 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (editing) return;
-      if (e.key === 'Escape') {
-        if (isZoomed) { resetZoom(); } else { onClose(); }
+      if (e.key === "Escape") {
+        if (isZoomed) {
+          resetZoom();
+        } else {
+          onClose();
+        }
       }
       if (!isZoomed) {
-        if (e.key === 'ArrowLeft') goPrev();
-        if (e.key === 'ArrowRight') goNext();
+        if (e.key === "ArrowLeft") goPrev();
+        if (e.key === "ArrowRight") goNext();
       }
-      if (e.key === 'i') setShowInfo((s) => !s);
+      if (e.key === "i") setShowInfo((s) => !s);
     };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
   }, [onClose, goPrev, goNext, isZoomed, resetZoom, editing]);
 
   // Touch handlers for swipe — only when NOT zoomed
@@ -111,12 +148,13 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
 
     if (!swipeDirection.current) {
       if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-        swipeDirection.current = Math.abs(dy) > Math.abs(dx) ? 'vertical' : 'horizontal';
+        swipeDirection.current =
+          Math.abs(dy) > Math.abs(dx) ? "vertical" : "horizontal";
       }
       return;
     }
 
-    if (swipeDirection.current === 'horizontal') {
+    if (swipeDirection.current === "horizontal") {
       setSwipeOffset(dx);
     } else {
       setSwipeY(Math.max(0, dy));
@@ -125,10 +163,10 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
 
   const handleTouchEnd = () => {
     if (isZoomed) return;
-    if (swipeDirection.current === 'horizontal') {
+    if (swipeDirection.current === "horizontal") {
       if (swipeOffset < -SWIPE_THRESHOLD && hasNext) goNext();
       else if (swipeOffset > SWIPE_THRESHOLD && hasPrev) goPrev();
-    } else if (swipeDirection.current === 'vertical') {
+    } else if (swipeDirection.current === "vertical") {
       if (swipeY > SWIPE_DOWN_THRESHOLD) onClose();
     }
     setSwipeOffset(0);
@@ -157,20 +195,22 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
       {/* Top bar */}
       <div
         className="shrink-0 flex items-center justify-between px-2 sm:px-4 z-10"
-        style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
+        style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={isZoomed ? resetZoom : onClose}
           className="p-2.5 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors active:scale-95"
-          aria-label={isZoomed ? 'Reset zoom' : 'Close'}
+          aria-label={isZoomed ? "Reset zoom" : "Close"}
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
 
         {/* Center: counter or zoom level */}
         <span className="text-white/60 text-xs tabular-nums">
-          {isZoomed ? `${zoomPercent}%` : `${currentIndex + 1} / ${photos.length}`}
+          {isZoomed
+            ? `${zoomPercent}%`
+            : `${currentIndex + 1} / ${photos.length}`}
         </span>
 
         <div className="flex items-center gap-0.5">
@@ -194,10 +234,15 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
             </button>
           )}
           <button
-            onClick={() => { setShowInfo(!showInfo); setEditingPhotoId(null); }}
+            onClick={() => {
+              setShowInfo(!showInfo);
+              setEditingPhotoId(null);
+            }}
             className={cn(
-              'p-2.5 rounded-full transition-colors active:scale-95',
-              showInfo ? 'bg-white/20 text-white' : 'text-white/60 hover:text-white hover:bg-white/10',
+              "p-2.5 rounded-full transition-colors active:scale-95",
+              showInfo
+                ? "bg-white/20 text-white"
+                : "text-white/60 hover:text-white hover:bg-white/10",
             )}
             aria-label="Show info"
           >
@@ -210,9 +255,18 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
       <div
         className="flex-1 flex min-h-0 relative"
         onClick={(e) => e.stopPropagation()}
-        onTouchStart={(e) => { handleTouchStart(e); zoomHandlers.onTouchStart(e); }}
-        onTouchMove={(e) => { handleTouchMove(e); zoomHandlers.onTouchMove(e); }}
-        onTouchEnd={() => { handleTouchEnd(); zoomHandlers.onTouchEnd(); }}
+        onTouchStart={(e) => {
+          handleTouchStart(e);
+          zoomHandlers.onTouchStart(e);
+        }}
+        onTouchMove={(e) => {
+          handleTouchMove(e);
+          zoomHandlers.onTouchMove(e);
+        }}
+        onTouchEnd={() => {
+          handleTouchEnd();
+          zoomHandlers.onTouchEnd();
+        }}
       >
         {/* Desktop prev/next buttons — hidden when zoomed */}
         {hasPrev && !isZoomed && (
@@ -238,25 +292,38 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
         <div
           ref={containerRef}
           className={cn(
-            'flex-1 flex items-center justify-center p-2 sm:p-12 transition-all duration-300 overflow-hidden',
-            showInfo && 'lg:mr-72',
+            "flex-1 flex items-center justify-center p-2 sm:p-12 transition-all duration-300 overflow-hidden",
+            showInfo && "lg:mr-72",
           )}
           style={{
-            transform: !isZoomed && swipeDirection.current === 'horizontal' && swipeOffset
-              ? `translateX(${swipeOffset * 0.4}px)`
-              : !isZoomed && swipeDirection.current === 'vertical' && swipeY
-              ? `translateY(${swipeY * 0.6}px) scale(${1 - dismissProgress * 0.1})`
-              : undefined,
-            transition: (swipeOffset || swipeY) ? 'none' : 'transform 0.3s ease',
+            transform:
+              !isZoomed &&
+              swipeDirection.current === "horizontal" &&
+              swipeOffset
+                ? `translateX(${swipeOffset * 0.4}px)`
+                : !isZoomed && swipeDirection.current === "vertical" && swipeY
+                  ? `translateY(${swipeY * 0.6}px) scale(${1 - dismissProgress * 0.1})`
+                  : undefined,
+            transition: swipeOffset || swipeY ? "none" : "transform 0.3s ease",
           }}
-          onWheel={photo.type !== 'video' ? zoomHandlers.onWheel : undefined}
-          onDoubleClick={photo.type !== 'video' ? zoomHandlers.onDoubleClick : undefined}
-          onMouseDown={photo.type !== 'video' ? zoomHandlers.onMouseDown : undefined}
-          onMouseMove={photo.type !== 'video' ? zoomHandlers.onMouseMove : undefined}
-          onMouseUp={photo.type !== 'video' ? zoomHandlers.onMouseUp : undefined}
-          onMouseLeave={photo.type !== 'video' ? zoomHandlers.onMouseLeave : undefined}
+          onWheel={photo.type !== "video" ? zoomHandlers.onWheel : undefined}
+          onDoubleClick={
+            photo.type !== "video" ? zoomHandlers.onDoubleClick : undefined
+          }
+          onMouseDown={
+            photo.type !== "video" ? zoomHandlers.onMouseDown : undefined
+          }
+          onMouseMove={
+            photo.type !== "video" ? zoomHandlers.onMouseMove : undefined
+          }
+          onMouseUp={
+            photo.type !== "video" ? zoomHandlers.onMouseUp : undefined
+          }
+          onMouseLeave={
+            photo.type !== "video" ? zoomHandlers.onMouseLeave : undefined
+          }
         >
-          {photo.type === 'video' ? (
+          {photo.type === "video" ? (
             <video
               key={photo.id}
               src={photo.fullUrl}
@@ -266,8 +333,8 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
               x-webkit-airplay="allow"
               onLoadedData={() => setLoaded(true)}
               className={cn(
-                'max-w-full max-h-full rounded-sm transition-all duration-500',
-                loaded ? 'opacity-100 scale-100' : 'opacity-0 scale-[0.97]',
+                "max-w-full max-h-full rounded-sm transition-all duration-500",
+                loaded ? "opacity-100 scale-100" : "opacity-0 scale-[0.97]",
               )}
             />
           ) : (
@@ -276,8 +343,8 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
               alt={photo.filename}
               onLoad={() => setLoaded(true)}
               className={cn(
-                'max-w-full max-h-full object-contain rounded-sm select-none',
-                loaded ? 'opacity-100' : 'opacity-0',
+                "max-w-full max-h-full object-contain rounded-sm select-none",
+                loaded ? "opacity-100" : "opacity-0",
               )}
               style={imageStyle}
               draggable={false}
@@ -296,7 +363,15 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-foreground">Details</h3>
-              {!editing && <Button size="sm" variant="outline" onClick={() => setEditingPhotoId(photo.id)}>Edit</Button>}
+              {!editing && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setEditingPhotoId(photo.id)}
+                >
+                  Edit
+                </Button>
+              )}
             </div>
             {editing ? (
               <PhotoDetailsForm
@@ -304,85 +379,122 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
                 photo={photo}
                 onCancel={() => setEditingPhotoId(null)}
                 onSaved={(updated) => {
-                  setEditingPhotoId((current) => current === updated.id ? null : current);
+                  setEditingPhotoId((current) =>
+                    current === updated.id ? null : current,
+                  );
                   onUpdate(updated);
                 }}
               />
-            ) : (<div className="space-y-4 text-sm">
-              <div>
-                <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">File</p>
-                <p className="text-foreground font-medium">{photo.filename}</p>
-                <p className="text-muted-foreground text-xs">{photo.width ?? '—'} × {photo.height ?? '—'} · {formatFileSize(photo.fileSize)}</p>
-              </div>
-
-              {meta.dateTaken && (
-                <div className="flex items-start gap-2.5">
-                  <Clock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">Date</p>
-                    <p className="text-foreground">{formatDateTime(meta.dateTaken)}</p>
-                  </div>
-                </div>
-              )}
-
-              {meta.location && (
-                <div className="flex items-start gap-2.5">
-                  <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">Location</p>
-                    <p className="text-foreground">{meta.location}</p>
-                  </div>
-                </div>
-              )}
-
-              {meta.camera && (
-                <div className="flex items-start gap-2.5">
-                  <Camera className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">Camera</p>
-                    <p className="text-foreground">{meta.camera}</p>
-                  </div>
-                </div>
-              )}
-
-              {meta.lens && (
+            ) : (
+              <div className="space-y-4 text-sm">
                 <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">Lens</p>
-                  <p className="text-foreground">{meta.lens}</p>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">
+                    File
+                  </p>
+                  <p className="text-foreground font-medium">
+                    {photo.filename}
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    {photo.width ?? "—"} × {photo.height ?? "—"} ·{" "}
+                    {formatFileSize(photo.fileSize)}
+                  </p>
                 </div>
-              )}
 
-              {(meta.aperture || meta.shutterSpeed || meta.iso != null) && (
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Exposure</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {meta.aperture && (
-                      <div className="bg-muted rounded-md p-2 text-center">
-                        <p className="text-xs text-muted-foreground">Aperture</p>
-                        <p className="text-foreground font-mono text-sm">{meta.aperture}</p>
-                      </div>
-                    )}
-                    {meta.shutterSpeed && (
-                      <div className="bg-muted rounded-md p-2 text-center">
-                        <p className="text-xs text-muted-foreground">Shutter</p>
-                        <p className="text-foreground font-mono text-sm">{meta.shutterSpeed}</p>
-                      </div>
-                    )}
-                    {meta.iso != null && (
-                      <div className="bg-muted rounded-md p-2 text-center">
-                        <p className="text-xs text-muted-foreground">ISO</p>
-                        <p className="text-foreground font-mono text-sm">{meta.iso}</p>
-                      </div>
-                    )}
+                {meta.dateTaken && (
+                  <div className="flex items-start gap-2.5">
+                    <Clock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">
+                        Date
+                      </p>
+                      <p className="text-foreground">
+                        {formatDateTime(meta.dateTaken)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              <div className="pt-2 border-t border-border">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Path</p>
-                <p className="text-foreground font-mono text-xs break-all">{photo.path}</p>
+                {meta.location && (
+                  <div className="flex items-start gap-2.5">
+                    <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">
+                        Location
+                      </p>
+                      <p className="text-foreground">{meta.location}</p>
+                    </div>
+                  </div>
+                )}
+
+                {meta.camera && (
+                  <div className="flex items-start gap-2.5">
+                    <Camera className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">
+                        Camera
+                      </p>
+                      <p className="text-foreground">{meta.camera}</p>
+                    </div>
+                  </div>
+                )}
+
+                {meta.lens && (
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">
+                      Lens
+                    </p>
+                    <p className="text-foreground">{meta.lens}</p>
+                  </div>
+                )}
+
+                {(meta.aperture || meta.shutterSpeed || meta.iso != null) && (
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">
+                      Exposure
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {meta.aperture && (
+                        <div className="bg-muted rounded-md p-2 text-center">
+                          <p className="text-xs text-muted-foreground">
+                            Aperture
+                          </p>
+                          <p className="text-foreground font-mono text-sm">
+                            {meta.aperture}
+                          </p>
+                        </div>
+                      )}
+                      {meta.shutterSpeed && (
+                        <div className="bg-muted rounded-md p-2 text-center">
+                          <p className="text-xs text-muted-foreground">
+                            Shutter
+                          </p>
+                          <p className="text-foreground font-mono text-sm">
+                            {meta.shutterSpeed}
+                          </p>
+                        </div>
+                      )}
+                      {meta.iso != null && (
+                        <div className="bg-muted rounded-md p-2 text-center">
+                          <p className="text-xs text-muted-foreground">ISO</p>
+                          <p className="text-foreground font-mono text-sm">
+                            {meta.iso}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="pt-2 border-t border-border">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                    Path
+                  </p>
+                  <p className="text-foreground font-mono text-xs break-all">
+                    {photo.path}
+                  </p>
+                </div>
               </div>
-            </div>)}
+            )}
           </div>
         )}
 
@@ -395,19 +507,28 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
             <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto mb-3" />
             <div className="space-y-3 text-sm">
               <div>
-                <p className="text-foreground font-medium truncate">{photo.filename}</p>
-                <p className="text-muted-foreground text-xs">{photo.width ?? '—'} × {photo.height ?? '—'} · {formatFileSize(photo.fileSize)}</p>
+                <p className="text-foreground font-medium truncate">
+                  {photo.filename}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  {photo.width ?? "—"} × {photo.height ?? "—"} ·{" "}
+                  {formatFileSize(photo.fileSize)}
+                </p>
               </div>
               {meta.dateTaken && (
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span className="text-foreground text-xs">{formatDateTime(meta.dateTaken)}</span>
+                  <span className="text-foreground text-xs">
+                    {formatDateTime(meta.dateTaken)}
+                  </span>
                 </div>
               )}
               {meta.location && (
                 <div className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span className="text-foreground text-xs">{meta.location}</span>
+                  <span className="text-foreground text-xs">
+                    {meta.location}
+                  </span>
                 </div>
               )}
               {meta.camera && (
@@ -418,12 +539,26 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
               )}
               {(meta.aperture || meta.shutterSpeed || meta.iso) && (
                 <div className="flex gap-2">
-                  {meta.aperture && <span className="bg-muted rounded px-2 py-1 text-xs text-foreground">{meta.aperture}</span>}
-                  {meta.shutterSpeed && <span className="bg-muted rounded px-2 py-1 text-xs text-foreground">{meta.shutterSpeed}</span>}
-                  {meta.iso && <span className="bg-muted rounded px-2 py-1 text-xs text-foreground">ISO {meta.iso}</span>}
+                  {meta.aperture && (
+                    <span className="bg-muted rounded px-2 py-1 text-xs text-foreground">
+                      {meta.aperture}
+                    </span>
+                  )}
+                  {meta.shutterSpeed && (
+                    <span className="bg-muted rounded px-2 py-1 text-xs text-foreground">
+                      {meta.shutterSpeed}
+                    </span>
+                  )}
+                  {meta.iso && (
+                    <span className="bg-muted rounded px-2 py-1 text-xs text-foreground">
+                      ISO {meta.iso}
+                    </span>
+                  )}
                 </div>
               )}
-              <p className="text-muted-foreground font-mono text-[10px] break-all pt-1 border-t border-border">{photo.path}</p>
+              <p className="text-muted-foreground font-mono text-[10px] break-all pt-1 border-t border-border">
+                {photo.path}
+              </p>
             </div>
           </div>
         )}
@@ -437,7 +572,7 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
         <div
           ref={thumbStripRef}
           className="flex gap-1.5 overflow-x-auto scrollbar-thin justify-center"
-          style={{ scrollbarWidth: 'none' }}
+          style={{ scrollbarWidth: "none" }}
         >
           {nearbyPhotos.map((p, i) => {
             const realIndex = thumbStart + i;
@@ -448,10 +583,10 @@ export default function PhotoViewer({ photo, photos, onClose, onNavigate, onDele
                 data-active={isActive}
                 onClick={() => onNavigate(p)}
                 className={cn(
-                  'shrink-0 rounded-md overflow-hidden transition-all duration-200',
+                  "shrink-0 rounded-md overflow-hidden transition-all duration-200",
                   isActive
-                    ? 'ring-2 ring-primary w-14 h-14 sm:w-16 sm:h-16 opacity-100'
-                    : 'w-10 h-10 sm:w-12 sm:h-12 opacity-50 hover:opacity-80',
+                    ? "ring-2 ring-primary w-14 h-14 sm:w-16 sm:h-16 opacity-100"
+                    : "w-10 h-10 sm:w-12 sm:h-12 opacity-50 hover:opacity-80",
                 )}
               >
                 <img

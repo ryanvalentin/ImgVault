@@ -1,7 +1,16 @@
-import { useState, useEffect, useMemo } from 'react';
-import { ArrowDownAZ, ArrowUpZA, ChevronRight, Folder as FolderIcon, Image, ListCollapse, ListTree, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import type { Folder } from '@/lib/mock-data';
+import { useState, useEffect, useMemo } from "react";
+import {
+  ArrowDownAZ,
+  ArrowUpZA,
+  ChevronRight,
+  Folder as FolderIcon,
+  Image,
+  ListCollapse,
+  ListTree,
+  X,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { Folder } from "@/lib/mock-data";
 
 interface FolderSidebarProps {
   folders: Folder[];
@@ -22,7 +31,13 @@ function sortFolders(folders: Folder[], asc: boolean): Folder[] {
     .sort((a, b) => (asc ? 1 : -1) * a.name.localeCompare(b.name));
 }
 
-function FolderNode({ folder, depth, selectedFolder, onSelectFolder, signal }: {
+function FolderNode({
+  folder,
+  depth,
+  selectedFolder,
+  onSelectFolder,
+  signal,
+}: {
   folder: Folder;
   depth: number;
   selectedFolder: string | null;
@@ -41,19 +56,29 @@ function FolderNode({ folder, depth, selectedFolder, onSelectFolder, signal }: {
     <div>
       <div
         className={cn(
-          'flex items-center w-full gap-1 px-3 py-1.5 text-sm rounded-md transition-colors duration-150',
-          'hover:bg-secondary/80',
-          isSelected ? 'bg-primary/10 text-primary font-medium' : 'text-foreground/70',
+          "flex items-center w-full gap-1 px-3 py-1.5 text-sm rounded-md transition-colors duration-150",
+          "hover:bg-secondary/80",
+          isSelected
+            ? "bg-primary/10 text-primary font-medium"
+            : "text-foreground/70",
         )}
         style={{ paddingLeft: `${depth * 16 + 12}px` }}
       >
         {hasChildren ? (
           <button
-            onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded(!expanded);
+            }}
             className="p-1 -ml-1 rounded hover:bg-secondary active:scale-95 shrink-0"
-            aria-label={expanded ? 'Collapse' : 'Expand'}
+            aria-label={expanded ? "Collapse" : "Expand"}
           >
-            <ChevronRight className={cn('h-3.5 w-3.5 transition-transform duration-200', expanded && 'rotate-90')} />
+            <ChevronRight
+              className={cn(
+                "h-3.5 w-3.5 transition-transform duration-200",
+                expanded && "rotate-90",
+              )}
+            />
           </button>
         ) : (
           <span className="w-5" />
@@ -64,7 +89,9 @@ function FolderNode({ folder, depth, selectedFolder, onSelectFolder, signal }: {
         >
           <FolderIcon className="h-4 w-4 shrink-0 text-accent" />
           <span className="truncate">{folder.name}</span>
-          <span className="ml-auto text-xs text-muted-foreground tabular-nums">{folder.photoCount}</span>
+          <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+            {folder.photoCount}
+          </span>
         </button>
       </div>
       {expanded && hasChildren && (
@@ -85,33 +112,51 @@ function FolderNode({ folder, depth, selectedFolder, onSelectFolder, signal }: {
   );
 }
 
-function SidebarContent({ folders, selectedFolder, onSelectFolder }: Omit<FolderSidebarProps, 'open' | 'onClose'>) {
+function SidebarContent({
+  folders,
+  selectedFolder,
+  onSelectFolder,
+}: Omit<FolderSidebarProps, "open" | "onClose">) {
   const totalPhotos = folders.reduce((sum, f) => sum + f.photoCount, 0);
   const [allExpanded, setAllExpanded] = useState(true);
-  const [signal, setSignal] = useState<ExpandSignal>({ expanded: false, id: 0 });
+  const [signal, setSignal] = useState<ExpandSignal>({
+    expanded: false,
+    id: 0,
+  });
   const [sortAsc, setSortAsc] = useState(true);
-  const sortedFolders = useMemo(() => sortFolders(folders, sortAsc), [folders, sortAsc]);
+  const sortedFolders = useMemo(
+    () => sortFolders(folders, sortAsc),
+    [folders, sortAsc],
+  );
 
   return (
     <>
       <div className="p-4 pb-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Library</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+          Library
+        </h2>
         <button
           onClick={() => onSelectFolder(null)}
           className={cn(
-            'flex items-center w-full gap-2 px-3 py-1.5 text-sm rounded-md transition-colors duration-150',
-            'hover:bg-secondary/80 active:scale-[0.98]',
-            selectedFolder === null ? 'bg-primary/10 text-primary font-medium' : 'text-foreground/70',
+            "flex items-center w-full gap-2 px-3 py-1.5 text-sm rounded-md transition-colors duration-150",
+            "hover:bg-secondary/80 active:scale-[0.98]",
+            selectedFolder === null
+              ? "bg-primary/10 text-primary font-medium"
+              : "text-foreground/70",
           )}
         >
           <Image className="h-4 w-4 shrink-0" />
           <span>All Photos</span>
-          <span className="ml-auto text-xs text-muted-foreground tabular-nums">{totalPhotos}</span>
+          <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+            {totalPhotos}
+          </span>
         </button>
       </div>
       <div className="px-4 pt-2 pb-1">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Folders</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Folders
+          </h2>
           <div className="flex items-center gap-1">
             <button
               onClick={() => {
@@ -120,18 +165,28 @@ function SidebarContent({ folders, selectedFolder, onSelectFolder }: Omit<Folder
                 setSignal((s) => ({ expanded: next, id: s.id + 1 }));
               }}
               className="p-1 rounded-md text-muted-foreground hover:bg-secondary active:scale-95"
-              aria-label={allExpanded ? 'Collapse all folders' : 'Expand all folders'}
-              title={allExpanded ? 'Collapse all' : 'Expand all'}
+              aria-label={
+                allExpanded ? "Collapse all folders" : "Expand all folders"
+              }
+              title={allExpanded ? "Collapse all" : "Expand all"}
             >
-              {allExpanded ? <ListTree className="h-3.5 w-3.5" /> : <ListCollapse className="h-3.5 w-3.5" />}
+              {allExpanded ? (
+                <ListTree className="h-3.5 w-3.5" />
+              ) : (
+                <ListCollapse className="h-3.5 w-3.5" />
+              )}
             </button>
             <button
               onClick={() => setSortAsc(!sortAsc)}
               className="p-1 rounded-md text-muted-foreground hover:bg-secondary active:scale-95"
-              aria-label={sortAsc ? 'Sort descending' : 'Sort ascending'}
-              title={sortAsc ? 'Sorted A–Z' : 'Sorted Z–A'}
+              aria-label={sortAsc ? "Sort descending" : "Sort ascending"}
+              title={sortAsc ? "Sorted A–Z" : "Sorted Z–A"}
             >
-              {sortAsc ? <ArrowDownAZ className="h-3.5 w-3.5" /> : <ArrowUpZA className="h-3.5 w-3.5" />}
+              {sortAsc ? (
+                <ArrowDownAZ className="h-3.5 w-3.5" />
+              ) : (
+                <ArrowUpZA className="h-3.5 w-3.5" />
+              )}
             </button>
           </div>
         </div>
@@ -152,21 +207,31 @@ function SidebarContent({ folders, selectedFolder, onSelectFolder }: Omit<Folder
   );
 }
 
-export default function FolderSidebar({ folders, selectedFolder, onSelectFolder, open, onClose }: FolderSidebarProps) {
+export default function FolderSidebar({
+  folders,
+  selectedFolder,
+  onSelectFolder,
+  open,
+  onClose,
+}: FolderSidebarProps) {
   // Close on escape
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && open) onClose();
+      if (e.key === "Escape" && open) onClose();
     };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
   }, [open, onClose]);
 
   return (
     <>
       {/* Desktop sidebar — always visible on lg+ */}
       <aside className="hidden lg:block w-56 shrink-0 border-r border-border bg-surface h-full overflow-y-auto scrollbar-thin">
-        <SidebarContent folders={folders} selectedFolder={selectedFolder} onSelectFolder={onSelectFolder} />
+        <SidebarContent
+          folders={folders}
+          selectedFolder={selectedFolder}
+          onSelectFolder={onSelectFolder}
+        />
       </aside>
 
       {/* Mobile overlay sidebar */}
@@ -178,7 +243,9 @@ export default function FolderSidebar({ folders, selectedFolder, onSelectFolder,
           />
           <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-surface border-r border-border overflow-y-auto scrollbar-thin lg:hidden shadow-xl animate-slide-in-left">
             <div className="flex items-center justify-between p-3 border-b border-border">
-              <span className="text-sm font-semibold text-foreground">Folders</span>
+              <span className="text-sm font-semibold text-foreground">
+                Folders
+              </span>
               <button
                 onClick={onClose}
                 className="p-1 rounded-md hover:bg-secondary transition-colors active:scale-95"

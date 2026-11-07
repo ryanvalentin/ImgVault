@@ -1,14 +1,45 @@
-import { PanelLeft, LayoutGrid, Map, Loader2, Trash2, ImageIcon, Film, Pencil, FolderHeart, Clock, FolderPlus, Settings } from 'lucide-react';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { cn } from '@/lib/utils';
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { fetchIndexStatus, fetchAlbums, addPhotosToAlbum, createAlbum, type Album } from '@/lib/api-client';
-import { toast } from 'sonner';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import {
+  PanelLeft,
+  LayoutGrid,
+  Map,
+  Loader2,
+  Trash2,
+  ImageIcon,
+  Film,
+  Pencil,
+  FolderHeart,
+  Clock,
+  FolderPlus,
+  Settings,
+} from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
+import { useEffect, useState, useCallback, useRef } from "react";
+import {
+  fetchIndexStatus,
+  fetchAlbums,
+  addPhotosToAlbum,
+  createAlbum,
+  type Album,
+} from "@/lib/api-client";
+import { toast } from "sonner";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
-export type ViewMode = 'grid' | 'map' | 'stats' | 'trash' | 'cleanup' | 'albums' | 'recent' | 'settings';
+export type ViewMode =
+  | "grid"
+  | "map"
+  | "stats"
+  | "trash"
+  | "cleanup"
+  | "albums"
+  | "recent"
+  | "settings";
 
 interface AppHeaderProps {
   onToggleSidebar: () => void;
@@ -26,17 +57,24 @@ interface AppHeaderProps {
 }
 
 const views: { mode: ViewMode; icon: typeof LayoutGrid; label: string }[] = [
-  { mode: 'grid', icon: LayoutGrid, label: 'Grid view' },
-  { mode: 'map', icon: Map, label: 'Map view' },
-  { mode: 'albums', icon: FolderHeart, label: 'Albums' },
-  { mode: 'recent', icon: Clock, label: 'Recent' },
-  { mode: 'settings', icon: Settings, label: 'Settings' },
+  { mode: "grid", icon: LayoutGrid, label: "Grid view" },
+  { mode: "map", icon: Map, label: "Map view" },
+  { mode: "albums", icon: FolderHeart, label: "Albums" },
+  { mode: "recent", icon: Clock, label: "Recent" },
+  { mode: "settings", icon: Settings, label: "Settings" },
 ];
 
-
 function useIndexStatus() {
-  const [status, setStatus] = useState<{ running: boolean; progress: number; total: number; last_run: string | null }>({
-    running: false, progress: 0, total: 0, last_run: null,
+  const [status, setStatus] = useState<{
+    running: boolean;
+    progress: number;
+    total: number;
+    last_run: string | null;
+  }>({
+    running: false,
+    progress: 0,
+    total: 0,
+    last_run: null,
   });
 
   const poll = useCallback(async () => {
@@ -56,17 +94,25 @@ function useIndexStatus() {
 
   return { status, refresh: poll };
 }
-function AddToAlbumButton({ selectedIds, onComplete }: { selectedIds?: Set<string>; onComplete?: () => void }) {
+function AddToAlbumButton({
+  selectedIds,
+  onComplete,
+}: {
+  selectedIds?: Set<string>;
+  onComplete?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(false);
-  const [newName, setNewName] = useState('');
+  const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     if (open) {
       setLoading(true);
-      fetchAlbums().then(res => setAlbums(res.items)).finally(() => setLoading(false));
+      fetchAlbums()
+        .then((res) => setAlbums(res.items))
+        .finally(() => setLoading(false));
     }
   }, [open]);
 
@@ -77,7 +123,9 @@ function AddToAlbumButton({ selectedIds, onComplete }: { selectedIds?: Set<strin
       toast.success(`Added ${selectedIds.size} photo(s) to "${albumName}"`);
       setOpen(false);
       onComplete?.();
-    } catch { toast.error('Failed to add to album'); }
+    } catch {
+      toast.error("Failed to add to album");
+    }
   };
 
   const handleCreateAndAdd = async () => {
@@ -86,12 +134,17 @@ function AddToAlbumButton({ selectedIds, onComplete }: { selectedIds?: Set<strin
     try {
       const res = await createAlbum(newName.trim());
       await addPhotosToAlbum(res.id, Array.from(selectedIds));
-      toast.success(`Created "${newName.trim()}" and added ${selectedIds.size} photo(s)`);
-      setNewName('');
+      toast.success(
+        `Created "${newName.trim()}" and added ${selectedIds.size} photo(s)`,
+      );
+      setNewName("");
       setOpen(false);
       onComplete?.();
-    } catch { toast.error('Failed to create album'); }
-    finally { setCreating(false); }
+    } catch {
+      toast.error("Failed to create album");
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
@@ -103,25 +156,31 @@ function AddToAlbumButton({ selectedIds, onComplete }: { selectedIds?: Set<strin
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-56 p-2" align="start">
-        <p className="text-xs font-medium text-foreground px-2 py-1">Add to album</p>
+        <p className="text-xs font-medium text-foreground px-2 py-1">
+          Add to album
+        </p>
         {loading ? (
           <div className="flex justify-center py-3">
             <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/20 border-t-primary animate-spin" />
           </div>
         ) : (
           <div className="max-h-40 overflow-y-auto scrollbar-thin">
-            {albums.map(album => (
+            {albums.map((album) => (
               <button
                 key={album.id}
                 onClick={() => handleAdd(album.id, album.name)}
                 className="w-full text-left px-2 py-1.5 rounded-md text-xs hover:bg-secondary transition-colors flex items-center justify-between"
               >
                 <span className="truncate text-foreground">{album.name}</span>
-                <span className="text-[10px] text-muted-foreground ml-2">{album.photoCount}</span>
+                <span className="text-[10px] text-muted-foreground ml-2">
+                  {album.photoCount}
+                </span>
               </button>
             ))}
             {albums.length === 0 && (
-              <p className="text-[10px] text-muted-foreground px-2 py-1">No albums yet</p>
+              <p className="text-[10px] text-muted-foreground px-2 py-1">
+                No albums yet
+              </p>
             )}
           </div>
         )}
@@ -129,11 +188,16 @@ function AddToAlbumButton({ selectedIds, onComplete }: { selectedIds?: Set<strin
           <Input
             placeholder="New album…"
             value={newName}
-            onChange={e => setNewName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleCreateAndAdd()}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleCreateAndAdd()}
             className="h-7 text-xs"
           />
-          <Button size="sm" className="h-7 px-2 text-xs" onClick={handleCreateAndAdd} disabled={!newName.trim() || creating}>
+          <Button
+            size="sm"
+            className="h-7 px-2 text-xs"
+            onClick={handleCreateAndAdd}
+            disabled={!newName.trim() || creating}
+          >
             +
           </Button>
         </div>
@@ -142,7 +206,20 @@ function AddToAlbumButton({ selectedIds, onComplete }: { selectedIds?: Set<strin
   );
 }
 
-export default function AppHeader({ onToggleSidebar, viewMode, onViewModeChange, typeFilter, onTypeFilterChange, deleteMode, onDeleteModeChange, selectedCount = 0, selectedIds, onDeleteSelected, onReindexComplete, onAddToAlbumComplete }: AppHeaderProps) {
+export default function AppHeader({
+  onToggleSidebar,
+  viewMode,
+  onViewModeChange,
+  typeFilter,
+  onTypeFilterChange,
+  deleteMode,
+  onDeleteModeChange,
+  selectedCount = 0,
+  selectedIds,
+  onDeleteSelected,
+  onReindexComplete,
+  onAddToAlbumComplete,
+}: AppHeaderProps) {
   const { status: indexStatus } = useIndexStatus();
   const isMobile = useIsMobile();
   const wasRunningRef = useRef(false);
@@ -166,57 +243,82 @@ export default function AppHeader({ onToggleSidebar, viewMode, onViewModeChange,
         </button>
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg overflow-hidden hidden sm:flex items-center justify-center">
-            <img src="/icon-512.png" alt="ImgVault" className="w-full h-full object-cover scale-110" />
+            <img
+              src="/icon-512.png"
+              alt="ImgVault"
+              className="w-full h-full object-cover scale-110"
+            />
           </div>
-          <h1 className="text-sm font-semibold text-foreground tracking-tight hidden sm:block">ImgVault</h1>
+          <h1 className="text-sm font-semibold text-foreground tracking-tight hidden sm:block">
+            ImgVault
+          </h1>
         </div>
 
         {indexStatus.running && (
           <div className="flex items-center gap-2 ml-1 text-xs text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin text-primary" />
             <span className="tabular-nums">
-              <span className="hidden sm:inline">Indexing… </span>{indexStatus.progress.toLocaleString()}
+              <span className="hidden sm:inline">Indexing… </span>
+              {indexStatus.progress.toLocaleString()}
             </span>
           </div>
         )}
 
-        {(viewMode === 'grid' || viewMode === 'map') && onTypeFilterChange && (
+        {(viewMode === "grid" || viewMode === "map") && onTypeFilterChange && (
           <div className="flex items-center bg-muted rounded-lg p-0.5 gap-0.5 ml-1">
             <button
               onClick={() => onTypeFilterChange(null)}
               className={cn(
-                'px-2 py-1 rounded-md text-xs font-medium transition-colors active:scale-95',
-                !typeFilter ? 'bg-surface shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground',
+                "px-2 py-1 rounded-md text-xs font-medium transition-colors active:scale-95",
+                !typeFilter
+                  ? "bg-surface shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
               title="All types"
-            >All</button>
+            >
+              All
+            </button>
             <button
-              onClick={() => onTypeFilterChange(typeFilter === 'image' ? null : 'image')}
+              onClick={() =>
+                onTypeFilterChange(typeFilter === "image" ? null : "image")
+              }
               className={cn(
-                'p-1.5 rounded-md transition-colors active:scale-95',
-                typeFilter === 'image' ? 'bg-surface shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground',
+                "p-1.5 rounded-md transition-colors active:scale-95",
+                typeFilter === "image"
+                  ? "bg-surface shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
               aria-label="Photos only"
               title="Photos only"
-            ><ImageIcon className="h-3.5 w-3.5" /></button>
+            >
+              <ImageIcon className="h-3.5 w-3.5" />
+            </button>
             <button
-              onClick={() => onTypeFilterChange(typeFilter === 'video' ? null : 'video')}
+              onClick={() =>
+                onTypeFilterChange(typeFilter === "video" ? null : "video")
+              }
               className={cn(
-                'p-1.5 rounded-md transition-colors active:scale-95',
-                typeFilter === 'video' ? 'bg-surface shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground',
+                "p-1.5 rounded-md transition-colors active:scale-95",
+                typeFilter === "video"
+                  ? "bg-surface shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
               aria-label="Videos only"
               title="Videos only"
-            ><Film className="h-3.5 w-3.5" /></button>
+            >
+              <Film className="h-3.5 w-3.5" />
+            </button>
           </div>
         )}
 
-        {viewMode === 'grid' && onDeleteModeChange && (
+        {viewMode === "grid" && onDeleteModeChange && (
           <button
             onClick={() => onDeleteModeChange(!deleteMode)}
             className={cn(
-              'px-2 py-1.5 rounded-md transition-colors active:scale-95',
-              deleteMode ? 'bg-selected text-selected-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary',
+              "px-2 py-1.5 rounded-md transition-colors active:scale-95",
+              deleteMode
+                ? "bg-selected text-selected-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-secondary",
             )}
             aria-label="Toggle selection mode"
           >
@@ -233,7 +335,10 @@ export default function AppHeader({ onToggleSidebar, viewMode, onViewModeChange,
               <Trash2 className="h-3.5 w-3.5" />
               {selectedCount}
             </button>
-            <AddToAlbumButton selectedIds={selectedIds} onComplete={onAddToAlbumComplete} />
+            <AddToAlbumButton
+              selectedIds={selectedIds}
+              onComplete={onAddToAlbumComplete}
+            />
           </>
         )}
 
@@ -245,10 +350,10 @@ export default function AppHeader({ onToggleSidebar, viewMode, onViewModeChange,
               key={mode}
               onClick={() => onViewModeChange(mode)}
               className={cn(
-                'p-1.5 rounded-md transition-all duration-150 active:scale-95',
+                "p-1.5 rounded-md transition-all duration-150 active:scale-95",
                 viewMode === mode
-                  ? 'bg-surface shadow-sm text-foreground'
-                  : 'text-muted-foreground hover:text-foreground',
+                  ? "bg-surface shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
               aria-label={label}
             >
@@ -260,10 +365,12 @@ export default function AppHeader({ onToggleSidebar, viewMode, onViewModeChange,
         {/* Settings shortcut on mobile */}
         {isMobile && (
           <button
-            onClick={() => onViewModeChange('settings')}
+            onClick={() => onViewModeChange("settings")}
             className={cn(
-              'p-2 rounded-md transition-colors active:scale-95',
-              viewMode === 'settings' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary',
+              "p-2 rounded-md transition-colors active:scale-95",
+              viewMode === "settings"
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-secondary",
             )}
             aria-label="Settings"
           >
@@ -276,7 +383,14 @@ export default function AppHeader({ onToggleSidebar, viewMode, onViewModeChange,
         <div className="h-0.5 bg-muted overflow-hidden">
           <div
             className="h-full bg-primary transition-all duration-700 ease-out"
-            style={{ width: indexStatus.progress > 0 ? '100%' : '30%', opacity: indexStatus.progress > 0 ? 1 : 0.5, animation: indexStatus.progress === 0 ? 'pulse 2s ease-in-out infinite' : 'none' }}
+            style={{
+              width: indexStatus.progress > 0 ? "100%" : "30%",
+              opacity: indexStatus.progress > 0 ? 1 : 0.5,
+              animation:
+                indexStatus.progress === 0
+                  ? "pulse 2s ease-in-out infinite"
+                  : "none",
+            }}
           />
         </div>
       )}

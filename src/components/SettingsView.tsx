@@ -1,63 +1,95 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Settings, Globe, RefreshCw, Loader2, Sparkles, BarChart3, Trash2, Sun, Moon, Zap, Key } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { fetchSettings, updateSetting, fetchIndexStatus, triggerReindex, triggerQuickReindex, fetchStats } from '@/lib/api-client';
-import { toast } from 'sonner';
-import CleanupView from './CleanupView';
-import StatsDashboard from './StatsDashboard';
-import TrashView from './TrashView';
-import type { Photo } from '@/lib/mock-data';
+import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  Settings,
+  Globe,
+  RefreshCw,
+  Loader2,
+  Sparkles,
+  BarChart3,
+  Trash2,
+  Sun,
+  Moon,
+  Zap,
+  Key,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  fetchSettings,
+  updateSetting,
+  fetchIndexStatus,
+  triggerReindex,
+  triggerQuickReindex,
+  fetchStats,
+} from "@/lib/api-client";
+import { toast } from "sonner";
+import CleanupView from "./CleanupView";
+import StatsDashboard from "./StatsDashboard";
+import TrashView from "./TrashView";
+import type { Photo } from "@/lib/mock-data";
 
 const LANGUAGES = [
-  { code: 'en', label: 'English' },
-  { code: 'sv', label: 'Svenska (Swedish)' },
-  { code: 'es', label: 'Español (Spanish)' },
-  { code: 'fr', label: 'Français (French)' },
-  { code: 'de', label: 'Deutsch (German)' },
-  { code: 'it', label: 'Italiano (Italian)' },
-  { code: 'pt', label: 'Português (Portuguese)' },
-  { code: 'nl', label: 'Nederlands (Dutch)' },
-  { code: 'da', label: 'Dansk (Danish)' },
-  { code: 'no', label: 'Norsk (Norwegian)' },
-  { code: 'fi', label: 'Suomi (Finnish)' },
-  { code: 'pl', label: 'Polski (Polish)' },
-  { code: 'ja', label: '日本語 (Japanese)' },
-  { code: 'ko', label: '한국어 (Korean)' },
-  { code: 'zh', label: '中文 (Chinese)' },
-  { code: 'ru', label: 'Русский (Russian)' },
-  { code: 'ar', label: 'العربية (Arabic)' },
-  { code: 'tr', label: 'Türkçe (Turkish)' },
+  { code: "en", label: "English" },
+  { code: "sv", label: "Svenska (Swedish)" },
+  { code: "es", label: "Español (Spanish)" },
+  { code: "fr", label: "Français (French)" },
+  { code: "de", label: "Deutsch (German)" },
+  { code: "it", label: "Italiano (Italian)" },
+  { code: "pt", label: "Português (Portuguese)" },
+  { code: "nl", label: "Nederlands (Dutch)" },
+  { code: "da", label: "Dansk (Danish)" },
+  { code: "no", label: "Norsk (Norwegian)" },
+  { code: "fi", label: "Suomi (Finnish)" },
+  { code: "pl", label: "Polski (Polish)" },
+  { code: "ja", label: "日本語 (Japanese)" },
+  { code: "ko", label: "한국어 (Korean)" },
+  { code: "zh", label: "中文 (Chinese)" },
+  { code: "ru", label: "Русский (Russian)" },
+  { code: "ar", label: "العربية (Arabic)" },
+  { code: "tr", label: "Türkçe (Turkish)" },
 ];
 
-const CARTO_API_KEY_URL = 'https://carto.com/basemaps/apikey/';
+const CARTO_API_KEY_URL = "https://carto.com/basemaps/apikey/";
 
 interface SettingsViewProps {
   onSelectPhoto?: (photo: Photo) => void;
   metadataRevision?: number;
 }
 
-type SettingsTab = 'general' | 'cleanup' | 'stats' | 'trash';
+type SettingsTab = "general" | "cleanup" | "stats" | "trash";
 
-export default function SettingsView({ onSelectPhoto, metadataRevision = 0 }: SettingsViewProps) {
-  const [tab, setTab] = useState<SettingsTab>('general');
-  const [geocodeLang, setGeocodeLang] = useState('en');
-  const [cartoApiKey, setCartoApiKey] = useState('');
+export default function SettingsView({
+  onSelectPhoto,
+  metadataRevision = 0,
+}: SettingsViewProps) {
+  const [tab, setTab] = useState<SettingsTab>("general");
+  const [geocodeLang, setGeocodeLang] = useState("en");
+  const [cartoApiKey, setCartoApiKey] = useState("");
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [saving, setSaving] = useState(false);
   const [stats, setStats] = useState<any>(null);
 
   // Theme
-  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
+  const [dark, setDark] = useState(() =>
+    document.documentElement.classList.contains("dark"),
+  );
   const toggleTheme = () => {
     const next = !dark;
     setDark(next);
-    document.documentElement.classList.toggle('dark', next);
-    localStorage.setItem('imgvault-theme', next ? 'dark' : 'light');
+    document.documentElement.classList.toggle("dark", next);
+    localStorage.setItem("imgvault-theme", next ? "dark" : "light");
   };
 
   // Reindex
-  const [indexStatus, setIndexStatus] = useState<{ running: boolean; progress: number; total: number; last_run: string | null }>({
-    running: false, progress: 0, total: 0, last_run: null,
+  const [indexStatus, setIndexStatus] = useState<{
+    running: boolean;
+    progress: number;
+    total: number;
+    last_run: string | null;
+  }>({
+    running: false,
+    progress: 0,
+    total: 0,
+    last_run: null,
   });
   const [reindexing, setReindexing] = useState(false);
   const wasRunningRef = useRef(false);
@@ -66,7 +98,9 @@ export default function SettingsView({ onSelectPhoto, metadataRevision = 0 }: Se
     try {
       const s = await fetchIndexStatus();
       setIndexStatus(s);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   useEffect(() => {
@@ -88,9 +122,9 @@ export default function SettingsView({ onSelectPhoto, metadataRevision = 0 }: Se
     try {
       await triggerReindex();
       await pollIndex();
-      toast.success('Full reindexing started');
+      toast.success("Full reindexing started");
     } catch {
-      toast.error('Failed to start reindex');
+      toast.error("Failed to start reindex");
       setReindexing(false);
     }
   };
@@ -101,9 +135,11 @@ export default function SettingsView({ onSelectPhoto, metadataRevision = 0 }: Se
     try {
       await triggerQuickReindex();
       await pollIndex();
-      toast.success('Quick reindexing started — only new photos will be scanned');
+      toast.success(
+        "Quick reindexing started — only new photos will be scanned",
+      );
     } catch {
-      toast.error('Failed to start quick reindex');
+      toast.error("Failed to start quick reindex");
       setReindexing(false);
     }
   };
@@ -111,7 +147,7 @@ export default function SettingsView({ onSelectPhoto, metadataRevision = 0 }: Se
   // Load settings
   useEffect(() => {
     fetchSettings()
-      .then(s => {
+      .then((s) => {
         if (s.geocode_language) setGeocodeLang(s.geocode_language);
         if (s.carto_api_key) setCartoApiKey(s.carto_api_key);
       })
@@ -120,7 +156,7 @@ export default function SettingsView({ onSelectPhoto, metadataRevision = 0 }: Se
 
   // Load stats
   useEffect(() => {
-    if (tab === 'stats' && !stats) {
+    if (tab === "stats" && !stats) {
       fetchStats().then(setStats).catch(console.error);
     }
   }, [tab, stats]);
@@ -129,10 +165,12 @@ export default function SettingsView({ onSelectPhoto, metadataRevision = 0 }: Se
     setGeocodeLang(lang);
     setSaving(true);
     try {
-      await updateSetting('geocode_language', lang);
-      toast.success('Location language updated. Run a full reindex to apply to existing photos.');
+      await updateSetting("geocode_language", lang);
+      toast.success(
+        "Location language updated. Run a full reindex to apply to existing photos.",
+      );
     } catch {
-      toast.error('Failed to save setting');
+      toast.error("Failed to save setting");
     } finally {
       setSaving(false);
     }
@@ -142,20 +180,20 @@ export default function SettingsView({ onSelectPhoto, metadataRevision = 0 }: Se
     setCartoApiKey(key);
     setSaving(true);
     try {
-      await updateSetting('carto_api_key', key);
-      toast.success('Carto API key updated.');
+      await updateSetting("carto_api_key", key);
+      toast.success("Carto API key updated.");
     } catch {
-      toast.error('Failed to save setting');
+      toast.error("Failed to save setting");
     } finally {
       setSaving(false);
     }
   };
 
   const tabs: { id: SettingsTab; icon: typeof Settings; label: string }[] = [
-    { id: 'general', icon: Settings, label: 'General' },
-    { id: 'cleanup', icon: Sparkles, label: 'Cleanup' },
-    { id: 'stats', icon: BarChart3, label: 'Stats' },
-    { id: 'trash', icon: Trash2, label: 'Trash' },
+    { id: "general", icon: Settings, label: "General" },
+    { id: "cleanup", icon: Sparkles, label: "Cleanup" },
+    { id: "stats", icon: BarChart3, label: "Stats" },
+    { id: "trash", icon: Trash2, label: "Trash" },
   ];
 
   return (
@@ -167,10 +205,10 @@ export default function SettingsView({ onSelectPhoto, metadataRevision = 0 }: Se
             key={id}
             onClick={() => setTab(id)}
             className={cn(
-              'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap',
+              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap",
               tab === id
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground hover:bg-secondary',
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-secondary",
             )}
           >
             <Icon className="h-3.5 w-3.5" />
@@ -181,37 +219,48 @@ export default function SettingsView({ onSelectPhoto, metadataRevision = 0 }: Se
 
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin pt-4 px-1">
-        {tab === 'general' && (
+        {tab === "general" && (
           <div className="max-w-lg space-y-6">
             {/* Appearance */}
             <section className="space-y-3">
-              <h2 className="text-sm font-semibold text-foreground">Appearance</h2>
+              <h2 className="text-sm font-semibold text-foreground">
+                Appearance
+              </h2>
               <div className="flex items-center justify-between rounded-lg border border-border bg-surface p-3">
                 <div className="flex items-center gap-2">
-                  {dark ? <Moon className="h-4 w-4 text-muted-foreground" /> : <Sun className="h-4 w-4 text-muted-foreground" />}
+                  {dark ? (
+                    <Moon className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Sun className="h-4 w-4 text-muted-foreground" />
+                  )}
                   <span className="text-sm text-foreground">Dark mode</span>
                 </div>
                 <button
                   onClick={toggleTheme}
                   className={cn(
-                    'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-                    dark ? 'bg-primary' : 'bg-input',
+                    "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+                    dark ? "bg-primary" : "bg-input",
                   )}
                 >
-                  <span className={cn(
-                    'inline-block h-4 w-4 rounded-full bg-background shadow-sm transition-transform',
-                    dark ? 'translate-x-6' : 'translate-x-1',
-                  )} />
+                  <span
+                    className={cn(
+                      "inline-block h-4 w-4 rounded-full bg-background shadow-sm transition-transform",
+                      dark ? "translate-x-6" : "translate-x-1",
+                    )}
+                  />
                 </button>
               </div>
             </section>
 
             {/* Location language */}
             <section className="space-y-3">
-              <h2 className="text-sm font-semibold text-foreground">Location Language</h2>
+              <h2 className="text-sm font-semibold text-foreground">
+                Location Language
+              </h2>
               <p className="text-xs text-muted-foreground">
-                Choose the language for reverse-geocoded location names (country, city, street).
-                After changing, run a full reindex to update existing photos.
+                Choose the language for reverse-geocoded location names
+                (country, city, street). After changing, run a full reindex to
+                update existing photos.
               </p>
               {loadingSettings ? (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -222,12 +271,14 @@ export default function SettingsView({ onSelectPhoto, metadataRevision = 0 }: Se
                   <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                   <select
                     value={geocodeLang}
-                    onChange={e => handleLangChange(e.target.value)}
+                    onChange={(e) => handleLangChange(e.target.value)}
                     disabled={saving}
                     className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none cursor-pointer"
                   >
-                    {LANGUAGES.map(l => (
-                      <option key={l.code} value={l.code}>{l.label}</option>
+                    {LANGUAGES.map((l) => (
+                      <option key={l.code} value={l.code}>
+                        {l.label}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -236,9 +287,20 @@ export default function SettingsView({ onSelectPhoto, metadataRevision = 0 }: Se
 
             {/* Carto API Key */}
             <section className="space-y-3">
-              <h2 className="text-sm font-semibold text-foreground">Carto API Key</h2>
+              <h2 className="text-sm font-semibold text-foreground">
+                Carto API Key
+              </h2>
               <p className="text-xs text-muted-foreground">
-                Enter your Carto API key for map tile access. You can request one here: <a href={CARTO_API_KEY_URL} target="_blank" rel="noopener noreferrer" className="underline">{CARTO_API_KEY_URL}</a>
+                Enter your Carto API key for map tile access. You can request
+                one here:{" "}
+                <a
+                  href={CARTO_API_KEY_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline"
+                >
+                  {CARTO_API_KEY_URL}
+                </a>
               </p>
               {loadingSettings ? (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -251,7 +313,7 @@ export default function SettingsView({ onSelectPhoto, metadataRevision = 0 }: Se
                     name="carto_api_key"
                     type="text"
                     value={cartoApiKey}
-                    onChange={e => handleCartoApiKeyChange(e.target.value)}
+                    onChange={(e) => handleCartoApiKeyChange(e.target.value)}
                     disabled={saving}
                     className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
                   />
@@ -261,27 +323,35 @@ export default function SettingsView({ onSelectPhoto, metadataRevision = 0 }: Se
 
             {/* Reindex */}
             <section className="space-y-3">
-              <h2 className="text-sm font-semibold text-foreground">Indexing</h2>
+              <h2 className="text-sm font-semibold text-foreground">
+                Indexing
+              </h2>
               <div className="rounded-lg border border-border bg-surface p-3 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-sm text-foreground">Quick Reindex</p>
                     <p className="text-xs text-muted-foreground">
-                      Only scan files that aren't in the library yet. Fast — use this after adding new photos.
+                      Only scan files that aren't in the library yet. Fast — use
+                      this after adding new photos.
                     </p>
                   </div>
                   <button
                     onClick={handleQuickReindex}
                     disabled={indexStatus.running || reindexing}
                     className={cn(
-                      'shrink-0 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium transition-colors',
+                      "shrink-0 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium transition-colors",
                       indexStatus.running || reindexing
-                        ? 'cursor-not-allowed bg-muted text-muted-foreground'
-                        : 'bg-surface text-foreground hover:bg-secondary',
+                        ? "cursor-not-allowed bg-muted text-muted-foreground"
+                        : "bg-surface text-foreground hover:bg-secondary",
                     )}
                   >
-                    <Zap className={cn('h-3.5 w-3.5', (indexStatus.running || reindexing) && 'animate-pulse')} />
-                    {indexStatus.running ? 'Indexing…' : 'Quick Scan'}
+                    <Zap
+                      className={cn(
+                        "h-3.5 w-3.5",
+                        (indexStatus.running || reindexing) && "animate-pulse",
+                      )}
+                    />
+                    {indexStatus.running ? "Indexing…" : "Quick Scan"}
                   </button>
                 </div>
 
@@ -291,27 +361,36 @@ export default function SettingsView({ onSelectPhoto, metadataRevision = 0 }: Se
                   <div className="min-w-0">
                     <p className="text-sm text-foreground">Full Reindex</p>
                     <p className="text-xs text-muted-foreground">
-                      Rescan all files, regenerate thumbnails, and update location data. Slow for large libraries.
+                      Rescan all files, regenerate thumbnails, and update
+                      location data. Slow for large libraries.
                     </p>
                   </div>
                   <button
                     onClick={handleReindex}
                     disabled={indexStatus.running || reindexing}
                     className={cn(
-                      'shrink-0 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium transition-colors',
+                      "shrink-0 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium transition-colors",
                       indexStatus.running || reindexing
-                        ? 'cursor-not-allowed bg-muted text-muted-foreground'
-                        : 'bg-surface text-foreground hover:bg-secondary',
+                        ? "cursor-not-allowed bg-muted text-muted-foreground"
+                        : "bg-surface text-foreground hover:bg-secondary",
                     )}
                   >
-                    <RefreshCw className={cn('h-3.5 w-3.5', (indexStatus.running || reindexing) && 'animate-spin')} />
-                    {indexStatus.running ? 'Indexing…' : 'Full Reindex'}
+                    <RefreshCw
+                      className={cn(
+                        "h-3.5 w-3.5",
+                        (indexStatus.running || reindexing) && "animate-spin",
+                      )}
+                    />
+                    {indexStatus.running ? "Indexing…" : "Full Reindex"}
                   </button>
                 </div>
                 {indexStatus.running && (
                   <div className="space-y-1">
                     <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full bg-primary transition-all duration-700 ease-out" style={{ width: '100%' }} />
+                      <div
+                        className="h-full bg-primary transition-all duration-700 ease-out"
+                        style={{ width: "100%" }}
+                      />
                     </div>
                     <p className="text-xs text-muted-foreground tabular-nums">
                       {indexStatus.progress.toLocaleString()} files processed
@@ -328,17 +407,18 @@ export default function SettingsView({ onSelectPhoto, metadataRevision = 0 }: Se
           </div>
         )}
 
-        {tab === 'cleanup' && (
+        {tab === "cleanup" && (
           <div className="h-full -mx-1">
-            <CleanupView onSelect={onSelectPhoto} metadataRevision={metadataRevision} />
+            <CleanupView
+              onSelect={onSelectPhoto}
+              metadataRevision={metadataRevision}
+            />
           </div>
         )}
 
-        {tab === 'stats' && (
-          <StatsDashboard stats={stats} />
-        )}
+        {tab === "stats" && <StatsDashboard stats={stats} />}
 
-        {tab === 'trash' && (
+        {tab === "trash" && (
           <div className="h-full -mx-1">
             <TrashView />
           </div>

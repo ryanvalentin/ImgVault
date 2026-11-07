@@ -33,9 +33,9 @@ export default defineConfig(({ mode }) => ({
         runtimeCaching: [
           {
             urlPattern: /^\/api\/thumbnails\//,
-            handler: 'CacheFirst',
+            handler: "CacheFirst",
             options: {
-              cacheName: 'thumbnail-cache',
+              cacheName: "thumbnail-cache",
               expiration: {
                 maxEntries: 5000,
                 maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
@@ -47,9 +47,9 @@ export default defineConfig(({ mode }) => ({
           },
           {
             urlPattern: /^\/api\/folders/,
-            handler: 'StaleWhileRevalidate',
+            handler: "StaleWhileRevalidate",
             options: {
-              cacheName: 'api-cache',
+              cacheName: "api-cache",
               expiration: {
                 maxEntries: 50,
                 maxAgeSeconds: 5 * 60, // 5 minutes

@@ -1,21 +1,26 @@
-import { mockPhotos, mockFolderTree, type Photo, type Folder } from './mock-data';
+import {
+  mockPhotos,
+  mockFolderTree,
+  type Photo,
+  type Folder,
+} from "./mock-data";
 
-const API_BASE = '/api';
+const API_BASE = "/api";
 
 let _apiAvailable: boolean | null = null;
 let _lastApiCheck = 0;
 const API_CHECK_TTL_MS = 5000;
 
 function isJsonResponse(res: Response) {
-  const contentType = res.headers.get('content-type') || '';
-  return contentType.includes('application/json');
+  const contentType = res.headers.get("content-type") || "";
+  return contentType.includes("application/json");
 }
 
 async function fetchJson<T>(input: string, init?: RequestInit): Promise<T> {
   const res = await fetch(input, init);
   if (!res.ok) throw new Error(`Request failed: ${res.status}`);
   if (!isJsonResponse(res)) {
-    throw new Error('API returned non-JSON response');
+    throw new Error("API returned non-JSON response");
   }
   return res.json();
 }
@@ -24,11 +29,18 @@ async function isApiAvailable(force = false): Promise<boolean> {
   const now = Date.now();
 
   if (!force && _apiAvailable === true) return true;
-  if (!force && _apiAvailable === false && now - _lastApiCheck < API_CHECK_TTL_MS) return false;
+  if (
+    !force &&
+    _apiAvailable === false &&
+    now - _lastApiCheck < API_CHECK_TTL_MS
+  )
+    return false;
 
   _lastApiCheck = now;
   try {
-    const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(2000) });
+    const res = await fetch(`${API_BASE}/health`, {
+      signal: AbortSignal.timeout(2000),
+    });
     _apiAvailable = res.ok && isJsonResponse(res);
   } catch {
     _apiAvailable = false;
@@ -54,20 +66,25 @@ export async function fetchPhotos(params: {
     }
     if (params.query) {
       const q = params.query.toLowerCase();
-      photos = photos.filter((p) =>
-        p.filename.toLowerCase().includes(q) ||
-        p.metadata.location?.toLowerCase().includes(q) ||
-        p.metadata.camera?.toLowerCase().includes(q) ||
-        p.metadata.dateTaken?.includes(q) ||
-        p.folder.toLowerCase().includes(q) ||
-        p.type.toLowerCase().includes(q)
+      photos = photos.filter(
+        (p) =>
+          p.filename.toLowerCase().includes(q) ||
+          p.metadata.location?.toLowerCase().includes(q) ||
+          p.metadata.camera?.toLowerCase().includes(q) ||
+          p.metadata.dateTaken?.includes(q) ||
+          p.folder.toLowerCase().includes(q) ||
+          p.type.toLowerCase().includes(q),
       );
     }
     if (params.dateFrom) {
-      photos = photos.filter((p) => p.metadata.dateTaken && p.metadata.dateTaken >= params.dateFrom!);
+      photos = photos.filter(
+        (p) => p.metadata.dateTaken && p.metadata.dateTaken >= params.dateFrom!,
+      );
     }
     if (params.dateTo) {
-      photos = photos.filter((p) => p.metadata.dateTaken && p.metadata.dateTaken <= params.dateTo!);
+      photos = photos.filter(
+        (p) => p.metadata.dateTaken && p.metadata.dateTaken <= params.dateTo!,
+      );
     }
     if (params.type) {
       photos = photos.filter((p) => p.type === params.type);
@@ -80,13 +97,13 @@ export async function fetchPhotos(params: {
   }
 
   const searchParams = new URLSearchParams();
-  if (params.query) searchParams.set('q', params.query);
-  if (params.folder) searchParams.set('folder', params.folder);
-  if (params.dateFrom) searchParams.set('date_from', params.dateFrom);
-  if (params.dateTo) searchParams.set('date_to', params.dateTo);
-  if (params.type) searchParams.set('type', params.type);
-  if (params.limit) searchParams.set('limit', String(params.limit));
-  if (params.offset) searchParams.set('offset', String(params.offset));
+  if (params.query) searchParams.set("q", params.query);
+  if (params.folder) searchParams.set("folder", params.folder);
+  if (params.dateFrom) searchParams.set("date_from", params.dateFrom);
+  if (params.dateTo) searchParams.set("date_to", params.dateTo);
+  if (params.type) searchParams.set("type", params.type);
+  if (params.limit) searchParams.set("limit", String(params.limit));
+  if (params.offset) searchParams.set("offset", String(params.offset));
 
   return fetchJson(`${API_BASE}/photos?${searchParams}`);
 }
@@ -124,17 +141,23 @@ interface UpdatedPhotoEntry {
   file_modified_at: string | null;
 }
 
-export async function updatePhoto(photo: Photo, updates: PhotoMetadataUpdate): Promise<Photo> {
-  const entry = await fetchJson<UpdatedPhotoEntry>(`${API_BASE}/photos/${encodeURIComponent(photo.id)}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(updates),
-  });
+export async function updatePhoto(
+  photo: Photo,
+  updates: PhotoMetadataUpdate,
+): Promise<Photo> {
+  const entry = await fetchJson<UpdatedPhotoEntry>(
+    `${API_BASE}/photos/${encodeURIComponent(photo.id)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    },
+  );
   return {
     ...photo,
     width: entry.width,
     height: entry.height,
-    createdAt: entry.date_taken || entry.file_modified_at || '',
+    createdAt: entry.date_taken || entry.file_modified_at || "",
     metadata: {
       dateTaken: entry.date_taken,
       location: entry.location,
@@ -187,23 +210,26 @@ export async function fetchMapPhotos(params: {
     }
     if (params.query) {
       const q = params.query.toLowerCase();
-      photos = photos.filter((p) =>
-        p.filename.toLowerCase().includes(q) ||
-        p.metadata.location?.toLowerCase().includes(q) ||
-        p.metadata.camera?.toLowerCase().includes(q) ||
-        p.folder.toLowerCase().includes(q)
+      photos = photos.filter(
+        (p) =>
+          p.filename.toLowerCase().includes(q) ||
+          p.metadata.location?.toLowerCase().includes(q) ||
+          p.metadata.camera?.toLowerCase().includes(q) ||
+          p.folder.toLowerCase().includes(q),
       );
     }
 
-    photos = photos.filter((p) => p.metadata.gpsLat != null && p.metadata.gpsLng != null);
+    photos = photos.filter(
+      (p) => p.metadata.gpsLat != null && p.metadata.gpsLng != null,
+    );
     const limit = params.limit || 20000;
     return { items: photos.slice(0, limit), total: photos.length };
   }
 
   const searchParams = new URLSearchParams();
-  if (params.query) searchParams.set('q', params.query);
-  if (params.folder) searchParams.set('folder', params.folder);
-  if (params.limit) searchParams.set('limit', String(params.limit));
+  if (params.query) searchParams.set("q", params.query);
+  if (params.folder) searchParams.set("folder", params.folder);
+  if (params.limit) searchParams.set("limit", String(params.limit));
 
   return fetchJson(`${API_BASE}/map-photos?${searchParams}`);
 }
@@ -218,31 +244,37 @@ export async function fetchMapClusters(params: {
     return { clusters: [], total: 0 };
   }
   const searchParams = new URLSearchParams();
-  if (params.query) searchParams.set('q', params.query);
-  if (params.folder) searchParams.set('folder', params.folder);
-  if (params.country) searchParams.set('country', params.country);
-  if (params.city) searchParams.set('city', params.city);
+  if (params.query) searchParams.set("q", params.query);
+  if (params.folder) searchParams.set("folder", params.folder);
+  if (params.country) searchParams.set("country", params.country);
+  if (params.city) searchParams.set("city", params.city);
 
   return fetchJson(`${API_BASE}/map-clusters?${searchParams}`);
 }
 
-export async function fetchMapCountries(): Promise<{ name: string; count: number }[]> {
+export async function fetchMapCountries(): Promise<
+  { name: string; count: number }[]
+> {
   if (!(await isApiAvailable())) return [];
   return fetchJson(`${API_BASE}/map-countries`);
 }
 
-export async function fetchMapCities(country?: string): Promise<{ name: string; count: number }[]> {
+export async function fetchMapCities(
+  country?: string,
+): Promise<{ name: string; count: number }[]> {
   if (!(await isApiAvailable())) return [];
-  const params = country ? `?country=${encodeURIComponent(country)}` : '';
+  const params = country ? `?country=${encodeURIComponent(country)}` : "";
   return fetchJson(`${API_BASE}/map-cities${params}`);
 }
 
 export async function triggerReindex(): Promise<{ message: string }> {
-  return fetchJson(`${API_BASE}/reindex?full=true`, { method: 'POST' });
+  return fetchJson(`${API_BASE}/reindex?full=true`, { method: "POST" });
 }
 
 export async function triggerQuickReindex(): Promise<{ message: string }> {
-  return fetchJson(`${API_BASE}/reindex?quick=true&full=false`, { method: 'POST' });
+  return fetchJson(`${API_BASE}/reindex?quick=true&full=false`, {
+    method: "POST",
+  });
 }
 
 export async function fetchIndexStatus(): Promise<{
@@ -268,34 +300,54 @@ export async function fetchDuplicates(): Promise<{
   return fetchJson(`${API_BASE}/duplicates`);
 }
 
-export async function deletePhotos(ids: string[]): Promise<{ deleted: number }> {
+export async function deletePhotos(
+  ids: string[],
+): Promise<{ deleted: number }> {
   return fetchJson(`${API_BASE}/photos/delete`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ids }),
   });
 }
 
 export async function fetchTrash(): Promise<{
-  items: { id: string; filename: string; originalPath: string; folder: string; type: string; width: number; height: number; thumbnailUrl: string | null; fileSize: number; deletedAt: string; metadata: { dateTaken: string | null; location: string | null; camera: string | null } }[];
+  items: {
+    id: string;
+    filename: string;
+    originalPath: string;
+    folder: string;
+    type: string;
+    width: number;
+    height: number;
+    thumbnailUrl: string | null;
+    fileSize: number;
+    deletedAt: string;
+    metadata: {
+      dateTaken: string | null;
+      location: string | null;
+      camera: string | null;
+    };
+  }[];
   total: number;
 }> {
   if (!(await isApiAvailable())) return { items: [], total: 0 };
   return fetchJson(`${API_BASE}/trash`);
 }
 
-export async function restoreFromTrash(ids: string[]): Promise<{ restored: number }> {
+export async function restoreFromTrash(
+  ids: string[],
+): Promise<{ restored: number }> {
   return fetchJson(`${API_BASE}/trash/restore`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ids }),
   });
 }
 
 export async function emptyTrash(ids?: string[]): Promise<{ deleted: number }> {
   return fetchJson(`${API_BASE}/trash/empty`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ids: ids || null }),
   });
 }
@@ -322,8 +374,24 @@ export async function fetchCleanup(): Promise<{
 }> {
   if (!(await isApiAvailable())) {
     return {
-      screenshots: [], shortVideos: [], largeVideos: [], similarGroups: [], duplicateGroups: [],
-      summary: { screenshotCount: 0, screenshotSize: 0, shortVideoCount: 0, shortVideoSize: 0, largeVideoCount: 0, largeVideoSize: 0, similarGroupCount: 0, similarPhotoCount: 0, duplicateGroupCount: 0, duplicatePhotoCount: 0, duplicateSize: 0 },
+      screenshots: [],
+      shortVideos: [],
+      largeVideos: [],
+      similarGroups: [],
+      duplicateGroups: [],
+      summary: {
+        screenshotCount: 0,
+        screenshotSize: 0,
+        shortVideoCount: 0,
+        shortVideoSize: 0,
+        largeVideoCount: 0,
+        largeVideoSize: 0,
+        similarGroupCount: 0,
+        similarPhotoCount: 0,
+        duplicateGroupCount: 0,
+        duplicatePhotoCount: 0,
+        duplicateSize: 0,
+      },
     };
   }
   return fetchJson(`${API_BASE}/cleanup`);
@@ -346,49 +414,75 @@ export async function fetchAlbums(): Promise<{ items: Album[] }> {
   return fetchJson(`${API_BASE}/albums`);
 }
 
-export async function createAlbum(name: string, description = ''): Promise<{ id: string; name: string }> {
+export async function createAlbum(
+  name: string,
+  description = "",
+): Promise<{ id: string; name: string }> {
   return fetchJson(`${API_BASE}/albums`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, description }),
   });
 }
 
-export async function updateAlbum(albumId: string, name: string, description = '', coverPhotoId?: string): Promise<void> {
+export async function updateAlbum(
+  albumId: string,
+  name: string,
+  description = "",
+  coverPhotoId?: string,
+): Promise<void> {
   await fetchJson(`${API_BASE}/albums/${albumId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, description, cover_photo_id: coverPhotoId || undefined }),
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name,
+      description,
+      cover_photo_id: coverPhotoId || undefined,
+    }),
   });
 }
 
 export async function deleteAlbum(albumId: string): Promise<void> {
-  await fetchJson(`${API_BASE}/albums/${albumId}`, { method: 'DELETE' });
+  await fetchJson(`${API_BASE}/albums/${albumId}`, { method: "DELETE" });
 }
 
-export async function fetchAlbumPhotos(albumId: string, limit = 500, offset = 0): Promise<{ items: Photo[]; total: number }> {
-  return fetchJson(`${API_BASE}/albums/${albumId}/photos?limit=${limit}&offset=${offset}`);
+export async function fetchAlbumPhotos(
+  albumId: string,
+  limit = 500,
+  offset = 0,
+): Promise<{ items: Photo[]; total: number }> {
+  return fetchJson(
+    `${API_BASE}/albums/${albumId}/photos?limit=${limit}&offset=${offset}`,
+  );
 }
 
-export async function addPhotosToAlbum(albumId: string, photoIds: string[]): Promise<void> {
+export async function addPhotosToAlbum(
+  albumId: string,
+  photoIds: string[],
+): Promise<void> {
   await fetchJson(`${API_BASE}/albums/${albumId}/photos`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ photo_ids: photoIds }),
   });
 }
 
-export async function removePhotosFromAlbum(albumId: string, photoIds: string[]): Promise<void> {
+export async function removePhotosFromAlbum(
+  albumId: string,
+  photoIds: string[],
+): Promise<void> {
   await fetchJson(`${API_BASE}/albums/${albumId}/photos/remove`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ photo_ids: photoIds }),
   });
 }
 
 // ── Recently added ────────────────────────────────────────────────
 
-export async function fetchRecentPhotos(limit = 200): Promise<{ items: Photo[]; total: number }> {
+export async function fetchRecentPhotos(
+  limit = 200,
+): Promise<{ items: Photo[]; total: number }> {
   if (!(await isApiAvailable())) return { items: [], total: 0 };
   return fetchJson(`${API_BASE}/recent?limit=${limit}`);
 }
@@ -400,8 +494,8 @@ export async function fetchSettings(): Promise<Record<string, string>> {
 
 export async function updateSetting(key: string, value: string): Promise<void> {
   await fetchJson(`${API_BASE}/settings/${key}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ value }),
   });
 }
